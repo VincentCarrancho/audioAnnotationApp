@@ -7,6 +7,8 @@ export type PlaybackEvent =
   | { type: 'ready'; duration: Seconds }
   | { type: 'position'; time: Seconds }
   | { type: 'playing' }
+  /** Playback stopped; observational only, never starts review. */
+  | { type: 'paused'; position: Seconds }
   | { type: 'user-paused'; position: Seconds }
   | { type: 'ended'; position: Seconds }
   | { type: 'loop-boundary'; position: Seconds }
@@ -18,7 +20,7 @@ export interface PlaybackAdapter {
   /** Load a URL approved for the current webview. It may be an asset-protocol URL. */
   load(url: string): Promise<void>
   play(): Promise<void>
-  /** Must emit user-paused only for an explicit user transport pause. */
+  /** Emits observational paused on a stop; user-paused only for explicit user intent. */
   pause(reason: 'user' | 'programmatic'): void
   seek(time: Seconds): void
   setLoop(range: TimeRange | null): void

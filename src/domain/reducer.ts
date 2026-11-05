@@ -63,8 +63,9 @@ export const domainReducer: DomainReducer = (state, action) => {
     case 'annotate-selection':
       return capture(state, action.id, { kind: 'range', start: action.start, end: action.end }, action.position, action.duration, action.playing)
     case 'user-paused':
-    case 'playback-ended':
       return state.review.status === 'inactive' && !state.review.deferPendingUntilCapture ? startReview(state, action.position) : unchanged(state)
+    case 'playback-ended':
+      return state.review.status !== 'active' ? startReview(state, action.position) : unchanged(state)
     case 'select-note':
       if (!state.project.annotations.some((item) => item.id === action.id)) return unchanged(state)
       return { state: { ...state, selectedNote: { kind: 'annotation', id: action.id } }, effects: [{ type: 'open-note', id: action.id }] }

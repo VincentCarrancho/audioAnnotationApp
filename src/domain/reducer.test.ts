@@ -103,11 +103,31 @@ describe('capture and review', () => {
     expect(s.state.review).toMatchObject({ status: 'finished', resumePosition: 40 })
     expect(s.send({ type: 'resume-listening' })).toEqual([{ type: 'seek', time: 40 }])
     expect(s.send({ type: 'user-paused', position: 60 })).toEqual([])
-    expect(s.send({ type: 'playback-ended', position: 100 })).toEqual([])
     expect(s.send({ type: 'capture-point', id: 'new', time: 70, duration: 100, playing: true })).toEqual([])
     expect(s.send({ type: 'user-paused', position: 80 })).toEqual([{ type: 'seek', time: 5 }, { type: 'open-note', id: 'skipped' }])
     expect(s.state.review).toMatchObject({ status: 'active', resumePosition: 80 })
     expect(s.send({ type: 'done-next' })).toEqual([{ type: 'seek', time: 70 }, { type: 'open-note', id: 'new' }])
+  })
+
+  it('opens skipped pending work at the non-looping end after resuming, without a new capture', () => {
+    const s = session()
+    s.send({ type: 'capture-point', id: 'skipped', time: 5, duration: 100, playing: true })
+    s.send({ type: 'user-paused', position: 40 })
+    s.send({ type: 'skip' })
+    s.send({ type: 'resume-listening' })
+    expect(s.send({ type: 'playback-ended', position: 100 })).toEqual([{ type: 'seek', time: 5 }, { type: 'open-note', id: 'skipped' }])
+    expect(s.state.review).toMatchObject({ status: 'active', currentId: 'skipped', resumePosition: 100 })
+    expect(s.send({ type: 'playback-ended', position: 100 })).toEqual([])
+    expect(s.state.review).toMatchObject({ status: 'active', currentId: 'skipped', resumePosition: 100 })
+  })
+
+  it('opens pending work at the non-looping end even if the previous result remains displayed', () => {
+    const s = session()
+    s.send({ type: 'capture-point', id: 'skipped', time: 5, duration: 100, playing: true })
+    s.send({ type: 'user-paused', position: 40 })
+    s.send({ type: 'skip' })
+    expect(s.send({ type: 'playback-ended', position: 100 })).toEqual([{ type: 'seek', time: 5 }, { type: 'open-note', id: 'skipped' }])
+    expect(s.state.review).toMatchObject({ status: 'active', currentId: 'skipped', resumePosition: 100 })
   })
 
   it('starts a new pass after a playing capture while the previous result is still displayed', () => {

@@ -26,7 +26,7 @@ export interface TimelineHandle {
 }
 
 type Handle = { key: string; id: string; part: 'point' | 'start' | 'end'; time: number }
-type Drag = { kind: 'selection'; start: number; clientX: number } | { kind: 'handle'; handle: Handle; clientX: number; time: number }
+type Drag = { kind: 'selection'; start: number; clientX: number } | { kind: 'handle'; handle: Handle; clientX: number; contentLeft: number }
 
 function formatTime(time: number) {
   if (!Number.isFinite(time)) return '0:00.00'
@@ -73,7 +73,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
       if (event.type === 'ready') setDuration(event.duration)
       if (event.type === 'position') setPosition(event.time)
       if (event.type === 'playing') setPlaying(true)
-      if (event.type === 'user-paused' || event.type === 'ended') setPlaying(false)
+      if (event.type === 'paused' || event.type === 'user-paused' || event.type === 'ended') setPlaying(false)
       if (event.type === 'error') setError(event.message)
       callbacks.current.onEvent?.(event)
     })
@@ -130,6 +130,12 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
     if (!rect || !duration || !rect.width) return 0
     return Math.max(0, Math.min(duration, (clientX - rect.left) / rect.width * duration))
   }
+  function handleDelta(current: Extract<Drag, { kind: 'handle' }>, clientX: number) {
+    const rect = content.current?.getBoundingClientRect()
+    if (!rect || !rect.width) return { pixels: 0, time: current.handle.time }
+    const pixels = clientX - current.clientX + current.contentLeft - rect.left
+    return { pixels, time: Math.max(0, Math.min(duration, current.handle.time + pixels / rect.width * duration)) }
+  }
   function publishSelection(value: TimeRange | null) { setSelection(value); currentPlayer()?.selectionChanged(value) }
   function handleAnchor(handle: Handle, time: number) {
     const annotation = callbacks.current.annotations.find((item) => item.id === handle.id)
@@ -148,20 +154,22 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
   function pointerMove(event: React.PointerEvent<HTMLDivElement>) {
     const current = drag.current
     if (!current) return
-    const time = timeAt(event.clientX)
-    if (current.kind === 'handle') setDragPreview({ key: current.handle.key, time })
-    else if (Math.abs(event.clientX - current.clientX) >= 3) publishSelection({ start: Math.min(current.start, time), end: Math.max(current.start, time) })
+    if (current.kind === 'handle') setDragPreview({ key: current.handle.key, time: handleDelta(current, event.clientX).time })
+    else if (Math.abs(event.clientX - current.clientX) >= 3) {
+      const time = timeAt(event.clientX)
+      publishSelection({ start: Math.min(current.start, time), end: Math.max(current.start, time) })
+    }
   }
   function pointerUp(event: React.PointerEvent<HTMLDivElement>) {
     const current = drag.current
     drag.current = null
     if (!current) return
-    const moved = Math.abs(event.clientX - current.clientX) >= 3
     if (current.kind === 'handle') {
+      const delta = handleDelta(current, event.clientX)
       setDragPreview(null)
-      if (moved) handleAnchor(current.handle, timeAt(event.clientX))
+      if (Math.abs(delta.pixels) >= 3) handleAnchor(current.handle, delta.time)
       else currentPlayer()?.annotationSelected(current.handle.id)
-    } else if (moved) {
+    } else if (Math.abs(event.clientX - current.clientX) >= 3) {
       const time = timeAt(event.clientX)
       publishSelection(time === current.start ? null : { start: Math.min(time, current.start), end: Math.max(time, current.start) })
     } else { publishSelection(null); currentPlayer()?.seek(current.start) }
@@ -192,7 +200,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
             return <button type="button" key={handle.key} className={`wn-handle ${props.selectedAnnotationId === handle.id ? 'is-selected' : ''}`} style={{ left: place.left, top: place.row * 30 }}
               aria-label={`${label} (${handle.id})`}
               title={`${label} · click to open, drag to adjust`}
-              onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); content.current?.setPointerCapture(event.pointerId); drag.current = { kind: 'handle', handle, clientX: event.clientX, time: handle.time } }}
+              onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); content.current?.setPointerCapture(event.pointerId); drag.current = { kind: 'handle', handle, clientX: event.clientX, contentLeft: content.current?.getBoundingClientRect().left ?? 0 } }}
               onClick={(event) => { if (event.detail === 0) currentPlayer()?.annotationSelected(handle.id) }}>
               {handle.part === 'point' ? '●' : handle.part === 'start' ? '[' : ']'}
             </button>

@@ -12,14 +12,23 @@ export class WaveSurferPlaybackAdapter implements PlaybackAdapter {
   private loading = false
   private loadErrorEmitted = false
   private seekedToEnd = false
+  private playing = false
+  private loopEndWrapPending = false
+  private pauseRequested = false
+  private explicitlyPaused = false
 
   constructor(private readonly wave: WaveSurferPlayer) {
     this.subscriptions = [
       wave.on('ready', (duration) => this.emit({ type: 'ready', duration })),
-      wave.on('play', () => this.emit({ type: 'playing' })),
+      wave.on('play', () => { this.explicitlyPaused = false; this.playing = true; this.emit({ type: 'playing' }) }),
+      wave.on('pause', () => {
+        const atLoopEnd = this.loop && (this.getPosition() >= this.loop.end || this.loopEndWrapPending)
+        if (!this.wave.isPlaying() && (this.pauseRequested || !atLoopEnd)) this.emitPaused()
+      }),
       wave.on('timeupdate', (time) => {
         if (this.loading) return
         if (time < this.wave.getDuration()) this.seekedToEnd = false
+        if (this.loop && time > this.loop.start && time < this.loop.end) this.loopEndWrapPending = false
         if (this.loop && this.wave.isPlaying() && time >= this.loop.end) {
           this.wrapLoop()
           return
@@ -29,11 +38,13 @@ export class WaveSurferPlaybackAdapter implements PlaybackAdapter {
       wave.on('finish', () => {
         if (this.loading) return
         if (this.loop) {
+          if (!this.playing) return
           // A finish can arrive after a timeupdate already wrapped the playhead.
           if (this.getPosition() >= this.loop.end) this.wrapLoop()
           if (!this.wave.isPlaying()) void this.play().catch(() => {})
-        } else if (!this.seekedToEnd) {
-          this.emit({ type: 'ended', position: this.getPosition() })
+        } else {
+          this.emitPaused()
+          if (!this.seekedToEnd && !this.explicitlyPaused) this.emit({ type: 'ended', position: this.getPosition() })
         }
       }),
       wave.on('error', (error) => {
@@ -55,6 +66,8 @@ export class WaveSurferPlaybackAdapter implements PlaybackAdapter {
     this.loading = true
     this.loadErrorEmitted = false
     this.seekedToEnd = false
+    this.loopEndWrapPending = false
+    this.explicitlyPaused = true
     try { await this.wave.load(url) } catch (error) {
       if (!this.loadErrorEmitted) this.emit({ type: 'error', message: error instanceof Error ? error.message : String(error) })
       throw error
@@ -64,14 +77,18 @@ export class WaveSurferPlaybackAdapter implements PlaybackAdapter {
   async play(): Promise<void> {
     if (this.loop && (this.getPosition() < this.loop.start || this.getPosition() >= this.loop.end)) this.seek(this.loop.start)
     try { await this.wave.play() } catch (error) {
+      if (!this.wave.isPlaying()) this.emitPaused()
       this.emit({ type: 'error', message: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
 
   pause(reason: 'user' | 'programmatic'): void {
-    const wasPlaying = this.wave.isPlaying()
-    this.wave.pause()
+    const wasPlaying = this.wave.isPlaying() || this.playing
+    this.explicitlyPaused = true
+    this.pauseRequested = true
+    try { this.wave.pause() } finally { this.pauseRequested = false }
+    if (wasPlaying && !this.wave.isPlaying()) this.emitPaused()
     if (reason === 'user' && wasPlaying) this.emit({ type: 'user-paused', position: this.getPosition() })
   }
 
@@ -87,6 +104,7 @@ export class WaveSurferPlaybackAdapter implements PlaybackAdapter {
     const duration = this.wave.getDuration()
     this.loop = range && Number.isFinite(duration) && Number.isFinite(range.start) && Number.isFinite(range.end)
       && range.start >= 0 && range.start < range.end && range.end <= duration ? { ...range } : null
+    this.loopEndWrapPending = false
   }
   setZoom(pixelsPerSecond: number): void {
     if (Number.isFinite(pixelsPerSecond) && pixelsPerSecond > 0) this.wave.zoom(pixelsPerSecond)
@@ -110,9 +128,15 @@ export class WaveSurferPlaybackAdapter implements PlaybackAdapter {
   private wrapLoop(): void {
     if (!this.loop) return
     const start = this.loop.start
+    this.loopEndWrapPending = this.loop.end >= this.wave.getDuration()
     this.wave.setTime(start)
     this.emit({ type: 'loop-boundary', position: start })
     this.emit({ type: 'position', time: start })
+  }
+  private emitPaused(): void {
+    if (!this.playing) return
+    this.playing = false
+    this.emit({ type: 'paused', position: this.getPosition() })
   }
   private emit(event: PlaybackEvent): void {
     if (!this.destroyed) this.listeners.forEach((listener) => listener(event))

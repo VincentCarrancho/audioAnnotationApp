@@ -22,7 +22,7 @@ const fake = vi.hoisted(() => {
     getCurrentTime: () => position, getDuration: () => 10, isPlaying: () => playing,
     zoom: vi.fn(), destroy: vi.fn(),
   }
-  return { wave, fire, reset: () => { listeners.clear(); position = 0; playing = false; vi.clearAllMocks() } }
+  return { wave, fire, stop: () => { playing = false }, reset: () => { listeners.clear(); position = 0; playing = false; vi.clearAllMocks() } }
 })
 vi.mock('wavesurfer.js', () => ({ default: { create: () => fake.wave } }))
 
@@ -84,5 +84,55 @@ describe('Timeline composition', () => {
     const start = screen.getByLabelText('Start')
     fireEvent.change(start, { target: { value: '2.125' } }); fireEvent.blur(start)
     expect(onAnchorChange).toHaveBeenCalledWith('range', { kind: 'range', start: 2.125, end: 8 }, 10)
+  })
+  it('moves a clamped zero-time handle by the drag delta, not the grab position', async () => {
+    const onAnchorChange = vi.fn()
+    const annotation: Annotation = { id: 'zero', anchor: { kind: 'point', time: 0 }, note: { blocks: [] } }
+    render(<Timeline recordingUrl="/sample.wav" annotations={[annotation]} onAnnotateSelection={vi.fn()} onAnchorChange={onAnchorChange} />)
+    const handle = await screen.findByRole('button', { name: /Pending annotation \(zero\)/ })
+    const content = handle.parentElement!.parentElement!
+    fireEvent.pointerDown(handle, { button: 0, clientX: 17, pointerId: 1 })
+    fireEvent.pointerMove(content, { clientX: 21, pointerId: 1 })
+    fireEvent.pointerUp(content, { clientX: 21, pointerId: 1 })
+    expect(onAnchorChange).toHaveBeenCalledWith('zero', { kind: 'point', time: 0.1 }, 10)
+  })
+  it('preserves an off-center grab and clamps a recording-end handle', async () => {
+    const onAnchorChange = vi.fn()
+    const range: Annotation = { id: 'range', anchor: { kind: 'range', start: 2, end: 10 }, note: { blocks: [] } }
+    render(<Timeline recordingUrl="/sample.wav" annotations={[range]} onAnnotateSelection={vi.fn()} onAnchorChange={onAnchorChange} />)
+    const end = await screen.findByRole('button', { name: /Range end.*\(range\)/ })
+    const content = end.parentElement!.parentElement!
+    fireEvent.pointerDown(end, { button: 0, clientX: 375, pointerId: 1 })
+    fireEvent.pointerMove(content, { clientX: 371, pointerId: 1 })
+    fireEvent.pointerUp(content, { clientX: 371, pointerId: 1 })
+    expect(onAnchorChange).toHaveBeenCalledWith('range', { kind: 'range', start: 2, end: 9.9 }, 10)
+    fireEvent.pointerDown(end, { button: 0, clientX: 375, pointerId: 2 })
+    fireEvent.pointerUp(content, { clientX: 395, pointerId: 2 })
+    expect(onAnchorChange).toHaveBeenLastCalledWith('range', { kind: 'range', start: 2, end: 10 }, 10)
+  })
+  it('includes viewport scrolling during a captured handle drag', async () => {
+    const onAnchorChange = vi.fn()
+    render(<Timeline recordingUrl="/sample.wav" annotations={annotations} onAnnotateSelection={vi.fn()} onAnchorChange={onAnchorChange} />)
+    const handle = await screen.findByRole('button', { name: /Pending annotation \(a\)/ })
+    const content = handle.parentElement!.parentElement!
+    let left = 0
+    vi.spyOn(content, 'getBoundingClientRect').mockImplementation(() => ({ left, right: left + 400, width: 400, top: 0, bottom: 100, height: 100, x: left, y: 0, toJSON: () => ({}) }))
+    fireEvent.pointerDown(handle, { button: 0, clientX: 167, pointerId: 1 })
+    left = -40
+    fireEvent.pointerMove(content, { clientX: 167, pointerId: 1 })
+    fireEvent.pointerUp(content, { clientX: 167, pointerId: 1 })
+    expect(onAnchorChange).toHaveBeenCalledWith('a', { kind: 'point', time: 5 }, 10)
+  })
+  it('shows Play after a seek-to-end pause without starting review', async () => {
+    const onEvent = vi.fn()
+    const ref = createRef<TimelineHandle>()
+    render(<Timeline ref={ref} recordingUrl="/sample.wav" annotations={[]} onEvent={onEvent} onAnnotateSelection={vi.fn()} onAnchorChange={vi.fn()} />)
+    await screen.findByText('0:00.00 / 0:10.00')
+    await act(async () => { await ref.current?.play() })
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy()
+    act(() => { ref.current?.seek(10); fake.stop(); fake.fire('pause'); fake.fire('finish') })
+    expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy()
+    expect(onEvent.mock.calls.map(([event]) => event)).toContainEqual({ type: 'paused', position: 10 })
+    expect(onEvent.mock.calls.some(([event]) => event.type === 'ended' || event.type === 'user-paused')).toBe(false)
   })
 })
