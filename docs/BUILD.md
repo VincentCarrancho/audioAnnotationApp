@@ -14,7 +14,7 @@ Implementation proposals below may be refined by agents when platform/library fa
 
 ## Current state
 
-Phase 0 scaffolding and shared contracts are implemented. Frontend build and tests pass, and the foundation agent reports a successful macOS release build. Native WAV loading/decoding is confirmed; playback awaits a manual click because macOS denied automated assistive access. Phase 0 remains open until that playback check is confirmed. Project-folder permissions require later native verification. Git is initialized and `origin` points to the user-authorized public repository `VincentCarrancho/audioAnnotationApp`. Use explicit file ownership in this shared workspace and preserve existing user changes.
+The prototype and review fixes are implemented. Automated checks and the final macOS package build pass; the latest packaged app has been launched. Full native end-to-end acceptance is awaiting user testing. The earlier installed-app restart error has no proven root cause. Git `origin` points to the user-authorized public repository `VincentCarrancho/audioAnnotationApp`. All implementation ownership has been released; preserve existing user changes before assigning follow-up work.
 
 ## Phase 0 — Foundation and contracts
 
@@ -154,7 +154,18 @@ Return: changed files, checks/results, blockers, integration instructions
 - [x] Product behavior approved.
 - [x] Multi-agent build plan prepared; Terra model ID verified.
 - [x] Frontier orchestration session selected by user.
-- [ ] Phase 0: foundation/contracts and native playback smoke test.
-- [ ] Phase 1: four implementation workstreams complete.
-- [ ] Phase 2: integrated native app.
-- [ ] Phase 3: verification, fixes, and final handoff.
+- [x] Phase 0: foundation/contracts and native playback smoke test (user confirmed current development app playback; full cold-restart regression remains open).
+- [x] Phase 1: four implementation workstreams complete (review fixes tracked below).
+- [x] Phase 2: composed app with native New/Open and browser-only fixture preview (native end-to-end acceptance remains in Phase 3).
+- [x] Phase 3 automated checks, review fixes, and packaged build.
+- [ ] Phase 3 manual native acceptance scenario and final sign-off.
+
+### Verification handoff
+
+- All application code, configuration, tests, and integration fixes were implemented by GPT-6.1 Terra agents. The orchestrator dispatched, reviewed, tested, documented, and managed Git.
+- Final orchestrator checks: 95 frontend tests, nine Rust tests, TypeScript, Rust formatting, and `npm run desktop:build` passed. The frontend emits a non-blocking chunk-size warning.
+- Live browser checks pass for real Editor.js focus on paused capture, text retention across note switching, M inside the editor, and deletion/Cmd+Z restoration. No browser console errors appeared. These do not establish native disk persistence.
+- Review fixes cover skipped-only EOF review, drag offsets, non-review transport stop events, editor focus, save-error feedback, keyboard undo, list excerpts, responsive note width, and native quit protection.
+- Native projects stay locked until close protection registers. Quit/menu termination and Tauri exit requests route through guarded close. The native hook is ABI/source-tested; actual Cmd+Q, cancellation, and save-on-quit remain manual acceptance items.
+- Fresh app: `src-tauri/target/release/bundle/macos/wavNotes.app`. Apple Silicon installer: `src-tauri/target/release/bundle/dmg/wavNotes_0.1.0_aarch64.dmg`. The old Applications copy is not automatically updated.
+- Remaining: complete the native scenario above, especially project-copy playback, save/reopen, move-folder reopening, full quit/relaunch, save-failure protection, and handle/loop interaction. Range-capture queue behavior remains provisional for user feedback.

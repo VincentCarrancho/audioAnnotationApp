@@ -14,7 +14,7 @@ vi.mock('./editorAdapter', () => ({ createEditorAdapter: () => editor }))
 import { NotePanel } from './NotePanel'
 
 afterEach(cleanup)
-beforeEach(() => { editor.open.mockClear(); editor.flush.mockClear(); editor.focus.mockClear() })
+beforeEach(() => { editor.open.mockClear(); editor.flush.mockClear(); editor.focus.mockReset() })
 
 function state(): DomainState {
   return {
@@ -28,6 +28,18 @@ function state(): DomainState {
 }
 
 describe('note panel', () => {
+  it('focuses an explicitly opened annotation only after its editor is visible', async () => {
+    const visibilityAtFocus: boolean[] = []
+    editor.focus.mockImplementation(() => {
+      const holder = document.querySelector<HTMLElement>('.wn-editor')!
+      visibilityAtFocus.push(!holder.hidden && getComputedStyle(holder).display !== 'none')
+    })
+    const props = { state: state(), revision: 0, focusRequest: 1, onSnapshot: vi.fn(), onAction: vi.fn(), onPlayAnnotation: vi.fn(), onLoopAnnotation: vi.fn() }
+    render(<NotePanel {...props} />)
+    await waitFor(() => expect(visibilityAtFocus).toHaveLength(1))
+    expect(visibilityAtFocus).toEqual([true])
+  })
+
   it('shows chronological navigation, explicit play/loop, and does not focus on passive selection or rerender', async () => {
     const props = { state: state(), revision: 0, onSnapshot: vi.fn(), onAction: vi.fn(), onPlayAnnotation: vi.fn(), onLoopAnnotation: vi.fn() }
     const view = render(<NotePanel {...props} />)
@@ -69,5 +81,33 @@ describe('note panel', () => {
     resolve()
     await Promise.resolve()
     expect(editor.focus).not.toHaveBeenCalled()
+  })
+
+  it('focuses explicit same-target requests and ignores a stale rapid switch', async () => {
+    const focusedHeadings: string[] = []
+    const visible: boolean[] = []
+    editor.focus.mockImplementation(() => {
+      const holder = document.querySelector<HTMLElement>('.wn-editor')!
+      visible.push(!holder.hidden && getComputedStyle(holder).display !== 'none')
+      focusedHeadings.push(document.querySelector('.wn-note-heading h2')!.textContent!)
+    })
+    const props = { state: state(), revision: 0, focusRequest: 1, onSnapshot: vi.fn(), onAction: vi.fn(), onPlayAnnotation: vi.fn(), onLoopAnnotation: vi.fn() }
+    const view = render(<NotePanel {...props} />)
+    await waitFor(() => expect(focusedHeadings).toHaveLength(1))
+    view.rerender(<NotePanel {...props} focusRequest={2} />)
+    await waitFor(() => expect(focusedHeadings).toHaveLength(2))
+    view.rerender(<NotePanel {...props} focusRequest={2} revision={3} />)
+    expect(focusedHeadings).toHaveLength(2)
+
+    let resolveLate!: () => void
+    editor.open.mockImplementationOnce(() => new Promise<void>(resolve => { resolveLate = resolve }))
+    view.rerender(<NotePanel {...props} focusRequest={3} state={{ ...props.state, selectedNote: { kind: 'annotation', id: 'late' } }} />)
+    await waitFor(() => expect(editor.open).toHaveBeenCalledTimes(3))
+    view.rerender(<NotePanel {...props} focusRequest={4} />)
+    await waitFor(() => expect(focusedHeadings).toHaveLength(3))
+    resolveLate()
+    await Promise.resolve()
+    expect(focusedHeadings).toEqual(['Annotation · 0:10 – 0:20', 'Annotation · 0:10 – 0:20', 'Annotation · 0:10 – 0:20'])
+    expect(visible).toEqual([true, true, true])
   })
 })

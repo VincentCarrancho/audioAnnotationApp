@@ -36,6 +36,7 @@ export function sameTarget(a: NoteTarget | null, b: NoteTarget | null): boolean 
 interface Session {
   target: NoteTarget
   editor: EditorInstance
+  ready: boolean
   revision: number
   publishedRevision: number
   fingerprint: string
@@ -47,7 +48,8 @@ const fingerprint = (document: NoteDocument) => JSON.stringify(document.blocks)
 const key = (target: NoteTarget) => target.kind === 'project' ? 'project' : `annotation:${target.id}`
 
 export interface NoteEditorAdapter extends EditorAdapter {
-  focus(): void
+  /** If supplied, focus only when this is still the editor's current target. */
+  focus(target?: NoteTarget): void
 }
 
 /** Serializes all saves and transitions; errors leave the current editor intact. */
@@ -117,13 +119,14 @@ export function createEditorAdapter(
         const initialRevision = Math.max(revision, revisions.get(key(target)) ?? 0)
         let current: Session | null = null
         const editor = factory({ holder, document, onChange: () => { if (current) changed(current) } })
-        current = { target: { ...target }, editor, revision: initialRevision,
+        current = { target: { ...target }, editor, ready: false, revision: initialRevision,
           publishedRevision: initialRevision, fingerprint: fingerprint(document),
           onInput: () => { if (current) changed(current) } }
         session = current
         holder.addEventListener('input', current.onInput)
         try {
           await editor.isReady
+          current.ready = true
         } catch (error) {
           holder.removeEventListener('input', current.onInput)
           // Not all Editor.js methods exist if initialization fails.
@@ -156,6 +159,30 @@ export function createEditorAdapter(
         listeners.clear()
       })
     },
-    focus() { session?.editor.focus(true) },
+    focus(target) {
+      const current = session
+      if (!current?.ready || (target && !sameTarget(current.target, target)) || !holder.isConnected || holder.closest('[hidden]')) return
+      const style = getComputedStyle(holder)
+      if (style.display === 'none' || style.visibility === 'hidden') return
+
+      const positioned = current.editor.focus(true)
+      const active = holder.ownerDocument.activeElement
+      const activeEditable = active instanceof HTMLElement && active.closest('[contenteditable="true"]')
+      if (positioned && activeEditable && holder.contains(activeEditable) && activeEditable.closest('.ce-block__content')) return
+
+      // Editor.js's boolean indicates a block exists, not that a DOM editable was focused.
+      const editables = holder.querySelectorAll<HTMLElement>('.ce-block__content [contenteditable="true"]')
+      const editable = Array.from(editables).reverse().find(element => !element.closest('[hidden]'))
+      if (!editable) return
+      editable.focus()
+      if (holder.ownerDocument.activeElement !== editable) return
+      const selection = holder.ownerDocument.getSelection()
+      if (!selection) return
+      const range = holder.ownerDocument.createRange()
+      range.selectNodeContents(editable)
+      range.collapse(false)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    },
   }
 }

@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import type { Annotation, AnnotationAnchor } from '../../contracts/project'
 import type { PlaybackEvent, TimeRange } from '../../contracts/playback'
 import { WaveSurferPlaybackAdapter } from '../../audio'
+import { noteExcerpt as extractNoteExcerpt } from '../notes/labels'
 import { placeHandles } from './placement'
 import './timeline.css'
 
@@ -35,13 +36,7 @@ function formatTime(time: number) {
 }
 
 function noteExcerpt(annotation: Annotation): string {
-  function findText(value: unknown): string {
-    if (typeof value === 'string') return value.replace(/<[^>]*>/g, '').trim()
-    if (Array.isArray(value)) return value.map(findText).find(Boolean) ?? ''
-    if (value && typeof value === 'object') return Object.values(value).map(findText).find(Boolean) ?? ''
-    return ''
-  }
-  return annotation.note.blocks.map((block) => findText(block.data)).find(Boolean)?.slice(0, 80) || 'Pending annotation'
+  return extractNoteExcerpt(annotation.note).slice(0, 80) || 'Pending annotation'
 }
 
 export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(props, ref) {

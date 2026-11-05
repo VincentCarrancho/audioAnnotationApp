@@ -41,6 +41,41 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('Timeline composition', () => {
+  it('uses list item text rather than list metadata in the handle and legend', () => {
+    const annotation: Annotation = {
+      id: 'list', anchor: { kind: 'point', time: 2 },
+      note: { blocks: [{ type: 'list', data: { style: 'unordered', items: [{ content: '<b>Listen</b> &amp; compare', items: [] }] } }] },
+    }
+    render(<Timeline recordingUrl="/sample.wav" annotations={[annotation]} selectedAnnotationId="list" onAnnotateSelection={vi.fn()} onAnchorChange={vi.fn()} />)
+    const handle = screen.getByRole('button', { name: 'Point · 0:02.00 · Listen & compare (list)' })
+    expect(handle.getAttribute('title')).toBe('Point · 0:02.00 · Listen & compare · click to open, drag to adjust')
+    expect(screen.getByText('Listen & compare · adjust time (seconds)').tagName).toBe('LEGEND')
+  })
+  it('skips an empty block and empty list item to label the first nested text safely', () => {
+    const annotation: Annotation = {
+      id: 'nested', anchor: { kind: 'range', start: 2, end: 8 },
+      note: { blocks: [
+        { type: 'paragraph', data: { text: '<br>' } },
+        { type: 'list', data: { style: 'ordered', items: [{ content: '&nbsp;', items: [{ content: '<a href="https://example.com">A &amp; <i>B</i></a>', items: [] }] }] } },
+      ] },
+    }
+    render(<Timeline recordingUrl="/sample.wav" annotations={[annotation]} selectedAnnotationId="nested" onAnnotateSelection={vi.fn()} onAnchorChange={vi.fn()} />)
+    const handle = screen.getByRole('button', { name: 'Range start · 0:02.00 · A & B (nested)' })
+    expect(handle.getAttribute('title')).toContain('A & B')
+    expect(screen.getByText('A & B · adjust time (seconds)').tagName).toBe('LEGEND')
+    expect(screen.queryByRole('link')).toBeNull()
+  })
+  it('keeps long excerpts bounded and uses the pending fallback for empty content', () => {
+    const long = 'a'.repeat(100)
+    const items: Annotation[] = [
+      { id: 'long', anchor: { kind: 'point', time: 2 }, note: { blocks: [{ type: 'paragraph', data: { text: long } }] } },
+      { id: 'empty', anchor: { kind: 'point', time: 4 }, note: { blocks: [{ type: 'list', data: { style: 'unordered', items: [] } }] } },
+    ]
+    render(<Timeline recordingUrl="/sample.wav" annotations={items} selectedAnnotationId="long" onAnnotateSelection={vi.fn()} onAnchorChange={vi.fn()} />)
+    expect(screen.getByRole('button', { name: `Point · 0:02.00 · ${'a'.repeat(80)} (long)` })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Point · 0:04.00 · Pending annotation (empty)' })).toBeTruthy()
+    expect(screen.getByText(`${'a'.repeat(80)} · adjust time (seconds)`)).toBeTruthy()
+  })
   it('makes same-time handles separately selectable without seeking; explicit commands seek and loop', async () => {
     const onEvent = vi.fn()
     const ref = createRef<TimelineHandle>()

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { EditorSnapshot, NoteDocument } from '../../contracts'
 import { createEditorAdapter, type EditorFactory } from './editorAdapter'
 
@@ -93,5 +93,38 @@ describe('Editor.js adapter', () => {
     fail = false
     expect((await adapter.flush()).target).toEqual({ kind: 'project' })
     await adapter.destroy()
+  })
+
+  it('focuses the current visible editable when caret focus returns false, but never a stale target', async () => {
+    const holder = document.createElement('div')
+    const elsewhere = document.createElement('button')
+    document.body.append(holder, elsewhere)
+    const focus = vi.fn(() => false)
+    const factory: EditorFactory = () => {
+      holder.innerHTML = '<div class="ce-block__content"><div contenteditable="true">text</div></div>'
+      return { isReady: Promise.resolve(), save: async () => doc('text'), focus, destroy: () => { holder.innerHTML = '' } }
+    }
+    const adapter = createEditorAdapter(holder, { factory })
+    const a = { kind: 'annotation', id: 'a' } as const
+    const b = { kind: 'annotation', id: 'b' } as const
+    await adapter.open(a, doc('text'), 0)
+    elsewhere.focus()
+    adapter.focus(b)
+    expect(focus).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(elsewhere)
+    holder.hidden = true
+    adapter.focus(a)
+    expect(focus).not.toHaveBeenCalled()
+    holder.hidden = false
+    adapter.focus(a)
+    const editable = holder.querySelector('[contenteditable="true"]')!
+    expect(document.activeElement).toBe(editable)
+    const selection = document.getSelection()!
+    expect(selection.isCollapsed).toBe(true)
+    expect(editable.contains(selection.anchorNode)).toBe(true)
+    expect(selection.anchorOffset).toBe(editable.childNodes.length)
+    await adapter.destroy()
+    holder.remove()
+    elsewhere.remove()
   })
 })

@@ -4,3 +4,13 @@ src-tauri/target/
 src-tauri/gen/
 *.tsbuildinfo
 .DS_Store
+
+# Local secrets and local project data
+.env
+.env.*
+!.env.example
+*.local
+projects/
+*.wavnotes/
+wavnotes.json
+recording.wav

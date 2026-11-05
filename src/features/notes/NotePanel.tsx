@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import type { DomainAction, DomainState, EditorSnapshot, NoteTarget } from '../../contracts'
 import { createEditorAdapter } from './editorAdapter'
 import { annotationLabel, formatAnchor } from './labels'
@@ -37,8 +37,9 @@ export const NotePanel = forwardRef<NotePanelHandle, NotePanelProps>(function No
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [ready, setReady] = useState(false)
-  const [openedTarget, setOpenedTarget] = useState('')
+  const [opened, setOpened] = useState<{ target: string; focusRequest?: number } | null>(null)
   const focusedRequest = useRef<number | undefined>(undefined)
+  const deliveredFocus = useRef<number | undefined>(undefined)
   const target = props.state.selectedNote
   const selected = target?.kind === 'annotation' ? props.state.project.annotations.find(a => a.id === target.id) : undefined
   const targetId = targetKey(target)
@@ -57,7 +58,10 @@ export const NotePanel = forwardRef<NotePanelHandle, NotePanelProps>(function No
         return snapshot
       } catch (error) { report(error); throw error }
     },
-    focus: () => adapter.current?.focus(),
+    focus: () => {
+      const target = latest.current.state.selectedNote
+      if (target) adapter.current?.focus(target)
+    },
   }), [])
 
   useEffect(() => {
@@ -99,11 +103,18 @@ export const NotePanel = forwardRef<NotePanelHandle, NotePanelProps>(function No
     void instance.open(noteTarget, document, current.revision).then(() => {
       if (cancelled) return
       setError(null)
-      setOpenedTarget(targetKey(noteTarget))
-      if (shouldFocus) instance.focus()
+      setOpened({ target: targetKey(noteTarget), focusRequest: shouldFocus ? current.focusRequest : undefined })
     }).catch(error => { if (!cancelled) report(error) })
     return () => { cancelled = true }
   }, [ready, targetId, props.focusRequest])
+
+  useLayoutEffect(() => {
+    const request = opened?.focusRequest
+    if (request === undefined || request !== props.focusRequest || request === deliveredFocus.current || opened?.target !== targetId) return
+    if (!holder.current || holder.current.hidden || !adapter.current) return
+    deliveredFocus.current = request
+    if (target) adapter.current.focus(target)
+  }, [opened, targetId, props.focusRequest])
 
   async function act(action: DomainAction) {
     setBusy(true)
@@ -145,8 +156,8 @@ export const NotePanel = forwardRef<NotePanelHandle, NotePanelProps>(function No
         </div>
         {error && <p role="alert" className="wn-note-error">Could not edit note: {error}</p>}
         {!target && <p>Select an annotation or the project note to write.</p>}
-        {target && openedTarget !== targetId && !error && <p>Opening note…</p>}
-        <div className="wn-editor" hidden={!target || openedTarget !== targetId} role="group" aria-label="Note editor" ref={holder} />
+        {target && opened?.target !== targetId && !error && <p>Opening note…</p>}
+        <div className="wn-editor" hidden={!target || opened?.target !== targetId} role="group" aria-label="Note editor" ref={holder} />
       </div>
     </div>
   </section>

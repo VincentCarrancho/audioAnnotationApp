@@ -1,7 +1,7 @@
 # wavNotes design
 
 This document records the user-approved prototype requirements. Unresolved questions are not requirements.
-Implementation is underway. For build sequencing, delegation, and verification, see [BUILD.md](BUILD.md).
+The prototype is implemented; native manual acceptance remains open. For build sequencing, delegation, and verification, see [BUILD.md](BUILD.md).
 
 ## Purpose and scope
 
