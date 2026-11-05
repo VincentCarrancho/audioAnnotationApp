@@ -14,7 +14,7 @@ Implementation proposals below may be refined by agents when platform/library fa
 
 ## Current state
 
-Phase 0 has been dispatched to a Terra foundation agent. The workspace was not a Git repository when initially inspected. Inspect the live filesystem before scaffolding and preserve existing documents or user changes. Use explicit file ownership in this shared workspace; do not assume worktrees are available.
+Phase 0 scaffolding and shared contracts are implemented. Frontend build and tests pass, and the foundation agent reports a successful macOS release build. Native WAV loading/decoding is confirmed; playback awaits a manual click because macOS denied automated assistive access. Phase 0 remains open until that playback check is confirmed. Project-folder permissions require later native verification. Git is initialized and `origin` points to the user-authorized public repository `VincentCarrancho/audioAnnotationApp`. Use explicit file ownership in this shared workspace and preserve existing user changes.
 
 ## Phase 0 — Foundation and contracts
 
