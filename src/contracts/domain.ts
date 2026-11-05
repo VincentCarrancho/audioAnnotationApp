@@ -2,7 +2,8 @@ import type { Annotation, AnnotationAnchor, AnnotationId, NoteDocument, ProjectD
 
 /** Transient state: never restore an active pass or auto-seek on project open. */
 export type ReviewPass =
-  | { status: 'inactive' }
+  /** After resuming with skipped items, wait for a new capture or explicit review. */
+  | { status: 'inactive'; deferPendingUntilCapture?: true }
   | { status: 'active'; currentId: AnnotationId; skippedIds: AnnotationId[]; resumePosition: Seconds }
   | { status: 'finished'; resumePosition: Seconds }
 
@@ -22,13 +23,13 @@ export interface DeletedAnnotation {
 
 /** IDs and current transport state are provided by the caller; transitions are pure. */
 export type DomainAction =
-  | { type: 'capture-point'; id: AnnotationId; time: Seconds; playing: boolean }
-  | { type: 'annotate-selection'; id: AnnotationId; start: Seconds; end: Seconds; playing: boolean }
+  | { type: 'capture-point'; id: AnnotationId; time: Seconds; duration: Seconds; playing: boolean }
+  | { type: 'annotate-selection'; id: AnnotationId; start: Seconds; end: Seconds; position: Seconds; duration: Seconds; playing: boolean }
   | { type: 'user-paused'; position: Seconds }
   | { type: 'playback-ended'; position: Seconds }
   | { type: 'select-note'; id: AnnotationId }
   | { type: 'select-project-note' }
-  | { type: 'select-queue-item'; id: AnnotationId }
+  | { type: 'select-queue-item'; id: AnnotationId; position: Seconds }
   | { type: 'review-pending'; position: Seconds }
   | { type: 'done-next' }
   | { type: 'skip' }

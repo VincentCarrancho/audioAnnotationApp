@@ -1,0 +1,11 @@
+.wn-queue { margin-top: 1rem; padding: 1rem; border: 1px solid #3b5060; border-radius: 10px; background: #1d2b36; }
+.wn-queue-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.wn-queue h2 { margin: 0; font-size: 1.05rem; }
+.wn-queue-heading span, .wn-queue-current { color: #a6cfbf; font-size: .8rem; }
+.wn-queue-list { list-style: none; padding: 0; margin: .75rem 0; }
+.wn-queue-list button { display: flex; align-items: baseline; gap: .75rem; width: 100%; text-align: left; background: transparent; color: inherit; font-weight: 400; overflow-wrap: anywhere; }
+.wn-queue-list button[aria-current] { background: #354e58; }
+.wn-queue-time { color: #a6cfbf; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.wn-queue-current { margin-left: auto; flex-shrink: 0; }
+.wn-queue-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
+.wn-queue-error { color: #ffb6a9; }
