@@ -14,7 +14,7 @@ Implementation proposals below may be refined by agents when platform/library fa
 
 ## Current state
 
-The prototype and review fixes are implemented. Automated checks and the final macOS package build pass; the latest packaged app has been launched. Full native end-to-end acceptance is awaiting user testing. The earlier installed-app restart error has no proven root cause. Git `origin` points to the user-authorized public repository `VincentCarrancho/audioAnnotationApp`. All implementation ownership has been released; preserve existing user changes before assigning follow-up work.
+The initial prototype and review fixes are implemented; native manual acceptance remains open. The user has approved renaming to aNotate and broad offline audio import while preserving originals. Two Terra agents are implementing this follow-up under the ownership and acceptance gates in [AUDIO-IMPORT.md](AUDIO-IMPORT.md); the phases below describe the initial prototype, not instructions to scaffold it again. Git `origin` remains the user-authorized public repository `VincentCarrancho/audioAnnotationApp`.
 
 ## Phase 0 — Foundation and contracts
 

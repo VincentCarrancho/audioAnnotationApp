@@ -1,7 +1,7 @@
-# wavNotes design
+# aNotate design
 
 This document records the user-approved prototype requirements. Unresolved questions are not requirements.
-The prototype is implemented; native manual acceptance remains open. For build sequencing, delegation, and verification, see [BUILD.md](BUILD.md).
+The initial prototype is implemented; native manual acceptance remains open. The approved rename and broad-format import follow-up is tracked in [AUDIO-IMPORT.md](AUDIO-IMPORT.md). Initial build sequencing and verification are in [BUILD.md](BUILD.md).
 
 ## Purpose and scope
 
@@ -10,11 +10,13 @@ The prototype is implemented; native manual acceptance remains open. For build s
 - No music-theory knowledge or structured musical categories required.
 - One recording per project.
 - Approved stack: Tauri, React + TypeScript with Vite, WaveSurfer.js, and Editor.js.
-- First prototype accepts WAV recordings only; additional formats are deferred.
+- App name: **aNotate**. Preserve existing projects, app installation identity, workspace location, and GitHub remote during the branding change.
+- Import common local audio formats offline through bundled FFmpeg: tested targets are MP3, M4A/AAC, FLAC, OGG/Vorbis/Opus, AIFF, WAV, and common WMA variants. Unsupported, damaged, or protected files produce clear errors; literal support for every proprietary/DRM format is not promised.
+- Preserve an exact original copy and create a separate WAV playback copy. The user accepted extra disk usage and import time in exchange for consistent playback and no end-user decoder installation.
 
 ## Project creation
 
-- New project → choose WAV → choose project name and location → copy recording into the project and open the timeline.
+- New project → choose audio → choose project name and location → preserve the original and prepare the playback copy → open the timeline.
 - Establish the save location before listening so the first capture can be persisted immediately.
 
 ## Notes and timeline
@@ -72,4 +74,4 @@ The prototype is implemented; native manual acceptance remains open. For build s
 - Also provide an explicit manual Save action.
 - Save / Cmd+S persists the project without completing an annotation or advancing the queue. Only Done → Next completes the current queued item.
 - Show Saving / Saved / Save failed status, retain edits on failure, and warn before closing with unsaved changes.
-- Each project is a self-contained folder with its own copy of the recording and its note data; the original recording remains untouched.
+- Each new project is a self-contained folder with the original recording, its playback copy, and note data. Existing WAV-only projects remain readable and writable without mandatory conversion or renaming.

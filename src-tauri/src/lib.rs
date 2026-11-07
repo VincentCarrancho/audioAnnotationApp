@@ -28,5 +28,6 @@ pub fn run() {
             }
         });
 }
+mod audio_import;
 mod persistence;
 mod quit_guard;

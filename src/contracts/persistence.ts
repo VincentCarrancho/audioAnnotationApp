@@ -14,8 +14,8 @@ export type SaveStatus =
   | { state: 'failed'; revision: number; message: string }
 
 export interface ProjectRepository {
-  /** Copy a WAV into a new self-contained project folder before returning. */
-  create(input: { sourceWavPath: string; parentDirectory: string; name: string }): Promise<ProjectSession>
+  /** Preserve the original and prepare a playback copy before returning. */
+  create(input: { sourceAudioPath: string; parentDirectory: string; name: string }): Promise<ProjectSession>
   open(directory: string): Promise<ProjectSession>
   /** Serialize writes per project; never let an older revision replace a newer revision. */
   save(session: ProjectSession, project: ProjectData, revision: number): Promise<void>

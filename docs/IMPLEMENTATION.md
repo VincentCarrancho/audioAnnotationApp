@@ -2,6 +2,8 @@
 
 Product behavior is defined by [PLAN.md](PLAN.md); [BUILD.md](BUILD.md) owns sequencing and acceptance gates. The prototype is implemented; native manual acceptance remains open. Contracts are exported from `src/contracts/index.ts`. Coordinate contract changes and assign exclusive writable paths before follow-up work.
 
+The aNotate branding/broad-audio follow-up is tracked in [AUDIO-IMPORT.md](AUDIO-IMPORT.md). New projects preserve `recording.original` metadata and an exact original at `original/source`, while `recording.relativePath` continues to reference a prepared 32-bit float WAV. Legacy version 1 projects without original metadata remain supported. Generic creation uses `sourceAudioPath`; Tauri's hooks provision the bundled decoder automatically. See README.md for the decoded-size limit and distribution requirements.
+
 ## Composition
 
 `src/App.tsx` composes project controls, timeline, notes, and queue. `src/app/controller.ts` owns synchronous current domain state, serialized transitions, target-scoped editor snapshots, autosave, and failure feedback. Module READMEs document integration seams. `src/persistence/` owns the native repository/revision writer; `src-tauri/src/persistence.rs` owns validated project folders, atomic writes, and narrow recording asset approval. Each project contains `wavnotes.json` and its copied `recording.wav`.

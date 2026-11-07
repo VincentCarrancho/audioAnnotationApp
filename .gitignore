@@ -14,3 +14,5 @@ projects/
 *.wavnotes/
 wavnotes.json
 recording.wav
+.decoder-cache/
+src-tauri/resources/ffmpeg

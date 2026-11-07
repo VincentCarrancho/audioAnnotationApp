@@ -5,12 +5,12 @@ import { forwardRef, StrictMode, useImperativeHandle } from 'react'
 import App from '../App'
 import type { DomainAction, DomainState } from '../contracts'
 
-const native = vi.hoisted(() => ({ enabled: false, create: vi.fn(), open: vi.fn(), save: vi.fn(), seek: vi.fn(), guard: vi.fn() }))
+const native = vi.hoisted(() => ({ enabled: false, create: vi.fn(), open: vi.fn(), save: vi.fn(), seek: vi.fn(), guard: vi.fn(), chooseAudio: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => native.enabled, convertFileSrc: (path: string) => path, invoke: vi.fn() }))
 vi.mock('../persistence', async importOriginal => {
   const original = await importOriginal<typeof import('../persistence')>()
   return { ...original, NativeProjectRepository: class { create = native.create; open = native.open; save = native.save },
-    chooseSourceWav: async () => '/original/demo.wav', chooseProjectParent: async () => '/notes',
+    chooseSourceAudio: native.chooseAudio, chooseProjectParent: async () => '/notes',
     chooseProjectFolder: async () => '/notes/demo', protectNativeClose: native.guard }
 })
 vi.mock('../features/timeline', () => ({ Timeline: forwardRef(function MockTimeline(props: { onEvent(event: unknown): void; annotations: unknown[] }, ref) {
@@ -25,7 +25,7 @@ vi.mock('../features/notes', () => ({ NotePanel: forwardRef(function MockPanel(p
 }) }))
 vi.mock('../features/queue', () => ({ QueuePanel: () => <div>queue</div> }))
 afterEach(() => { cleanup(); native.enabled = false; vi.clearAllMocks() })
-beforeEach(() => { native.guard.mockReset().mockResolvedValue(() => {}) })
+beforeEach(() => { native.guard.mockReset().mockResolvedValue(() => {}); native.chooseAudio.mockReset().mockResolvedValue('/original/demo.wav') })
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -37,6 +37,7 @@ function deferred<T>() {
 describe('browser fallback', () => {
   it('requires native projects and opens only a clearly labelled fixture', () => {
     render(<App />)
+    expect(screen.getByText('Notate').parentElement?.textContent).toBe('aNotate')
     expect(screen.getByText(/Projects require the macOS desktop app/)).toBeTruthy()
     expect(screen.queryByText('Open project')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Open nonpersistent preview/ }))
@@ -84,20 +85,63 @@ describe('browser fallback', () => {
 })
 
 describe('native project entry', () => {
-  it('creates a real project through the native repository after choosing WAV, name and location', async () => {
+  it('creates a real project from audio, retaining Unicode and stripping only the final extension', async () => {
     native.enabled = true
+    native.chooseAudio.mockResolvedValue('/original/Été mix.v2.flac')
     native.create.mockResolvedValue({ directory: '/notes/demo', recordingUrl: 'asset://recording', project: { version: 1, id: 'native', name: 'demo', recording: { relativePath: 'recording.wav' }, annotations: [], projectNote: { blocks: [] }, pendingAnnotationIds: [] } })
     render(<App />)
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'New project' })[0]).not.toHaveProperty('disabled', true))
     fireEvent.click(screen.getAllByRole('button', { name: 'New project' })[0])
-    fireEvent.click(screen.getByRole('button', { name: /Choose WAV/ }))
-    await screen.findByDisplayValue('demo')
+    fireEvent.click(screen.getByRole('button', { name: /Choose audio/ }))
+    await screen.findByDisplayValue('Été mix.v2')
     fireEvent.click(screen.getByRole('button', { name: /Choose location/ }))
     await screen.findByText('/notes')
     fireEvent.click(screen.getByRole('button', { name: 'Create project' }))
-    await waitFor(() => expect(native.create).toHaveBeenCalledWith({ sourceWavPath: '/original/demo.wav', parentDirectory: '/notes', name: 'demo' }))
+    await waitFor(() => expect(native.create).toHaveBeenCalledWith({ sourceAudioPath: '/original/Été mix.v2.flac', parentDirectory: '/notes', name: 'Été mix.v2' }))
     expect(await screen.findByText('Listening notebook')).toBeTruthy()
     expect(screen.queryByText(/Fixture preview only/)).toBeNull()
+  })
+  it.each([
+    ['/original/No extension', 'No extension'],
+    ['/original/.hidden', '.hidden'],
+    ['C:\\Audio\\Live set.M4A', 'Live set'],
+  ])('suggests a project name for %s', async (path, suggested) => {
+    native.enabled = true
+    native.chooseAudio.mockResolvedValue(path)
+    render(<App />)
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'New project' })[0]).not.toHaveProperty('disabled', true))
+    fireEvent.click(screen.getAllByRole('button', { name: 'New project' })[0])
+    fireEvent.click(screen.getByRole('button', { name: /Choose audio/ }))
+    await screen.findByDisplayValue(suggested)
+  })
+  it('shows preparation only during creation and blocks transitions and native close until it finishes', async () => {
+    native.enabled = true
+    const picker = deferred<string | null>()
+    const importing = deferred<never>()
+    native.chooseAudio.mockReturnValueOnce(picker.promise)
+    native.create.mockReturnValueOnce(importing.promise)
+    render(<App />)
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'New project' })[0]).not.toHaveProperty('disabled', true))
+    fireEvent.click(screen.getAllByRole('button', { name: 'New project' })[0])
+    fireEvent.click(screen.getByRole('button', { name: /Choose audio/ }))
+    expect(screen.queryByText('Preparing audio…')).toBeNull()
+    await act(async () => picker.resolve('/original/demo.mp3'))
+    fireEvent.click(screen.getByRole('button', { name: /Choose location/ }))
+    await screen.findByText('/notes')
+    fireEvent.click(screen.getByRole('button', { name: 'Create project' }))
+    await waitFor(() => expect(native.create).toHaveBeenCalledTimes(1))
+    expect(screen.getByRole('status').textContent).toContain('Preparing your project')
+    expect(screen.getByRole('button', { name: 'Preparing audio…' })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: 'Open project' })).toHaveProperty('disabled', true)
+    expect(screen.getByLabelText('2. Project name')).toHaveProperty('disabled', true)
+    fireEvent.click(screen.getByRole('button', { name: 'Preparing audio…' }))
+    expect(native.create).toHaveBeenCalledTimes(1)
+    expect(await native.guard.mock.calls[0][0]()).toBe(false)
+    await act(async () => importing.reject(new Error('Audio could not be decoded')))
+    expect(screen.getByRole('alert').textContent).toContain('Audio could not be decoded')
+    expect(screen.getByRole('button', { name: 'Create project' })).not.toHaveProperty('disabled', true)
+    expect(screen.queryByText('Preparing audio…')).toBeNull()
   })
   it('blocks native entry while close protection is pending or fails, and enables it only after retry succeeds', async () => {
     native.enabled = true

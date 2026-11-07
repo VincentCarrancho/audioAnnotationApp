@@ -4,7 +4,7 @@ import type { DomainAction, ProjectData, ProjectRepository, ProjectSession } fro
 import { Timeline, type TimelineHandle } from './features/timeline'
 import { NotePanel, type NotePanelHandle } from './features/notes'
 import { QueuePanel } from './features/queue'
-import { chooseProjectFolder, chooseProjectParent, chooseSourceWav, NativeProjectRepository, protectNativeClose } from './persistence'
+import { chooseProjectFolder, chooseProjectParent, chooseSourceAudio, NativeProjectRepository, protectNativeClose } from './persistence'
 import { AppController, isEditingTarget } from './app/controller'
 
 const repository = new NativeProjectRepository()
@@ -48,6 +48,7 @@ export default function App() {
   const [name, setName] = useState('')
   const [parent, setParent] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   function install(session: ProjectSession, repo: ProjectRepository, preview = false) {
     if (native && !guardReady.current) throw new Error('Close protection is not ready. Retry protection before opening a project.')
@@ -79,12 +80,13 @@ export default function App() {
   async function createProject() {
     if (!source || !parent || !name.trim()) return
     await run(async () => {
+      setImporting(true)
       const thaw = freezeWorkspace()
       try {
         if (!await safeToLeave()) return
         if (!guardReady.current) throw new Error('Close protection is not ready. Retry protection before creating a project.')
-        install(await repository.create({ sourceWavPath: source, parentDirectory: parent, name: name.trim() }), repository)
-      } finally { thaw() }
+        install(await repository.create({ sourceAudioPath: source, parentDirectory: parent, name: name.trim() }), repository)
+      } finally { thaw(); setImporting(false) }
     })
   }
   function openPreview() {
@@ -141,7 +143,7 @@ export default function App() {
 
   return <div className="app-shell">
     <header className="app-header">
-      <div className="brand"><span className="brand-mark" aria-hidden="true">≋</span><span>wav<span>Notes</span></span></div>
+      <div className="brand"><span className="brand-mark" aria-hidden="true">≋</span><span>a<span>Notate</span></span></div>
       <div className="header-actions">
         {controller && <span className="project-name">{controller.session.project.name}</span>}
         {native && <><button className="quiet" disabled={busy || guardStatus !== 'ready'} onClick={() => { setCreating(true); setError(null) }}>New project</button><button className="quiet" disabled={busy || guardStatus !== 'ready'} onClick={() => void openProject()}>Open project</button></>}
@@ -152,13 +154,14 @@ export default function App() {
     {native && guardStatus === 'failed' && <div className="shell-error" role="alert">Could not protect unsaved changes: {guardError}. Projects are locked. Retry protection or restart the app. <button onClick={() => { guardReady.current = false; setGuardError(null); setGuardStatus('pending'); setGuardAttempt(attempt => attempt + 1) }}>Retry protection</button></div>}
     {error && <div className="shell-error" role="alert">{error} <button className="quiet" onClick={() => setError(null)}>Dismiss</button></div>}
     {creating && native && <section className="create-card" aria-label="Create project" inert={guardStatus !== 'ready' || undefined}>
-      <div className="section-heading"><div><p className="eyebrow">A new listening notebook</p><h2>Create a project</h2><p>Your WAV is copied into its own project folder; the original stays untouched.</p></div><button className="quiet" onClick={() => setCreating(false)}>Cancel</button></div>
+      <div className="section-heading"><div><p className="eyebrow">A new listening notebook</p><h2>Create a project</h2><p>An exact copy of your original recording is preserved in the project alongside a separate WAV playback copy. Preparing audio can take time and uses extra disk space.</p></div><button className="quiet" disabled={busy} onClick={() => setCreating(false)}>Cancel</button></div>
       <div className="create-fields">
-        <div><label>1. Recording</label><button disabled={busy} onClick={() => void run(async () => { const value = await chooseSourceWav(); if (value) { setSource(value); if (!name) setName(value.split(/[\\/]/).pop()?.replace(/\.wav$/i, '') ?? '') } })}>Choose WAV…</button><span className="path">{source || 'No recording selected'}</span></div>
-        <div><label htmlFor="project-name">2. Project name</label><input id="project-name" value={name} onChange={event => setName(event.target.value)} placeholder="Name your project" /></div>
+        <div><label>1. Recording</label><button disabled={busy} onClick={() => void run(async () => { const value = await chooseSourceAudio(); if (value) { setSource(value); if (!name) setName(value.split(/[\\/]/).pop()?.replace(/^(.+)\.[^.]+$/, '$1') ?? '') } })}>Choose audio…</button><span className="path">{source || 'No recording selected'}</span></div>
+        <div><label htmlFor="project-name">2. Project name</label><input id="project-name" disabled={busy} value={name} onChange={event => setName(event.target.value)} placeholder="Name your project" /></div>
         <div><label>3. Location</label><button disabled={busy} onClick={() => void run(async () => { const value = await chooseProjectParent(); if (value) setParent(value) })}>Choose location…</button><span className="path">{parent || 'No location selected'}</span></div>
       </div>
-      <button className="primary" disabled={busy || !source || !parent || !name.trim()} onClick={() => void createProject()}>{busy ? 'Creating…' : 'Create project'}</button>
+      <button className="primary" disabled={busy || !source || !parent || !name.trim()} onClick={() => void createProject()}>{importing ? 'Preparing audio…' : 'Create project'}</button>
+      {importing && <p role="status">Preparing your project and playback copy. This may take a while; please keep aNotate open.</p>}
     </section>}
     {controller ? <div inert={native && guardStatus !== 'ready' || undefined}><ProjectWorkspace key={controller.sessionKey} controller={controller} editor={editor} timeline={timeline} /></div> : !creating && <main className="welcome">
       <div className="welcome-art" aria-hidden="true"><span>◦</span><div>▂▃▆▃▇▅▂▆▃▅▂</div></div>
@@ -166,7 +169,7 @@ export default function App() {
       <h1>Listen closely.<br /><em>Keep what you notice.</em></h1>
       <p>Make notes at moments and passages in a recording, without breaking your concentration.</p>
       {native ? <div className="welcome-actions"><button className="primary" disabled={busy || guardStatus !== 'ready'} onClick={() => setCreating(true)}>New project</button><button onClick={() => void openProject()} disabled={busy || guardStatus !== 'ready'}>Open project folder</button></div> : <><p className="native-notice">Projects require the macOS desktop app. Browser preview is a disposable fixture and cannot save or open projects.</p><button onClick={openPreview}>Open nonpersistent preview</button></>}
-      <div className="welcome-hint">WAV recordings · Your notes stay in your project folder</div>
+      <div className="welcome-hint">Local audio recordings · Your notes stay in your project folder</div>
     </main>}
   </div>
 }

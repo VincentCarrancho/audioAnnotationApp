@@ -1,20 +1,20 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "wavNotes",
+  "productName": "aNotate",
   "version": "0.1.0",
   "identifier": "com.wavnotes.desktop",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "bash scripts/provision-decoder.sh && npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "bash scripts/provision-decoder.sh && npm run build",
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "wavNotes", "width": 1100, "height": 760 }],
+    "windows": [{ "title": "aNotate", "width": 1100, "height": 760 }],
     "security": {
       "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost asset: http://asset.localhost; media-src 'self' asset: http://asset.localhost blob:; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'",
       "assetProtocol": { "enable": true, "scope": ["$RESOURCE/resources/smoke.wav"] }
     }
   },
-  "bundle": { "active": true, "targets": "all", "resources": ["resources/smoke.wav"] }
+  "bundle": { "active": true, "targets": "all", "resources": { "resources/smoke.wav": "resources/smoke.wav", "resources/ffmpeg": "resources/ffmpeg", "../third-party/ffmpeg/": "third-party/ffmpeg/", "../scripts/provision-decoder.sh": "third-party/ffmpeg/provision-decoder.sh" } }
 }

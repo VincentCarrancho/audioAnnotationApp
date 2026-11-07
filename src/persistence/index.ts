@@ -82,7 +82,7 @@ export class NativeProjectRepository implements ProjectRepository {
     return session
   }
 
-  async create(input: { sourceWavPath: string; parentDirectory: string; name: string }): Promise<ProjectSession> {
+  async create(input: { sourceAudioPath: string; parentDirectory: string; name: string }): Promise<ProjectSession> {
     return this.session(await invoke<NativeOpened>('create_project', input))
   }
 
@@ -96,8 +96,8 @@ export class NativeProjectRepository implements ProjectRepository {
 }
 
 /** Null means the user canceled the picker. */
-export async function chooseSourceWav(): Promise<string | null> {
-  return open({ multiple: false, directory: false, filters: [{ name: 'WAV recording', extensions: ['wav'] }] })
+export async function chooseSourceAudio(): Promise<string | null> {
+  return open({ multiple: false, directory: false, filters: [{ name: 'Audio recording', extensions: ['wav', 'mp3', 'm4a', 'aac', 'flac', 'ogg', 'oga', 'opus', 'aif', 'aiff', 'wma'] }] })
 }
 
 export async function chooseProjectParent(): Promise<string | null> {

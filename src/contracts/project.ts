@@ -22,7 +22,7 @@ export interface ProjectData {
   version: 1
   id: ProjectId
   name: string
-  recording: { relativePath: string }
+  recording: { relativePath: string; original?: { relativePath: string; name: string } }
   annotations: Annotation[]
   projectNote: NoteDocument
   pendingAnnotationIds: AnnotationId[]

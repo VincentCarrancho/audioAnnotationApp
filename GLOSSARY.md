@@ -1,4 +1,4 @@
-# wavNotes
+# aNotate
 
 A personal listening notebook for studying music through close listening and free-form observations, without requiring music-theory knowledge.
 
@@ -11,6 +11,13 @@ _Avoid_: Session, workspace
 **Recording**:
 The audio being studied in a project.
 _Avoid_: Track, song
+
+**Original recording**:
+The unmodified source audio preserved with a project.
+_Avoid_: Playback copy
+
+**Playback copy**:
+A derived version of the recording used for listening, waveform display, and timestamped annotations. It does not replace or modify the original recording.
 
 **Annotation**:
 A free-form formatted note attached to a moment or passage in the recording. Separate annotations may refer to the same time.
