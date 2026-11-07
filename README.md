@@ -49,6 +49,8 @@ bash scripts/verify-audio-import.sh
 
 ## Working with notes
 
+Outside editors and controls, **Space** plays or pauses and **← / →** seek five seconds. Shortcuts leave normal text editing and focused controls alone.
+
 Capture with M outside an editor, or use **Add marker**. Playback continues while capturing; pausing opens the first queued item. **Done → Next** completes an item, while **Skip for now** leaves it pending for a later pass. Normal playback during review does not move to another note. Select a marker or an item in the chronological note navigation to open it without seeking; use the explicit play or loop buttons to listen from it. Delete is separately undoable with **Undo delete** or ⌘Z (Ctrl+Z) outside an editor. The project note is independent of annotations.
 
 Changes are autosaved after editing. A failed save remains visible and the app asks before discarding unsaved content on project switch or native close. The recording and notes are stored together in the project folder.

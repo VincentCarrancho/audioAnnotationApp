@@ -2,7 +2,7 @@
 
 Product behavior is defined by [PLAN.md](PLAN.md); [BUILD.md](BUILD.md) owns sequencing and acceptance gates. The prototype is implemented; native manual acceptance remains open. Contracts are exported from `src/contracts/index.ts`. Coordinate contract changes and assign exclusive writable paths before follow-up work.
 
-The aNotate branding/broad-audio follow-up is tracked in [AUDIO-IMPORT.md](AUDIO-IMPORT.md). New projects preserve `recording.original` metadata and an exact original at `original/source`, while `recording.relativePath` continues to reference a prepared 32-bit float WAV. Legacy version 1 projects without original metadata remain supported. Generic creation uses `sourceAudioPath`; Tauri's hooks provision the bundled decoder automatically. See README.md for the decoded-size limit and distribution requirements.
+The aNotate branding/broad-audio follow-up is tracked in [AUDIO-IMPORT.md](AUDIO-IMPORT.md). New projects preserve `recording.original` metadata and the original filename under `original/`, while `recording.relativePath` references a prepared 32-bit float WAV. Legacy version 1 projects, including the early `original/source` layout, remain supported. Generic creation uses `sourceAudioPath`; Tauri hooks provision the bundled decoder. See README.md for limits/distribution requirements and [UX-PASS.md](UX-PASS.md) for the active UI/UX follow-up.
 
 ## Composition
 

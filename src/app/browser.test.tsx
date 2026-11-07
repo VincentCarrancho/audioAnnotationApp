@@ -5,7 +5,7 @@ import { forwardRef, StrictMode, useImperativeHandle } from 'react'
 import App from '../App'
 import type { DomainAction, DomainState } from '../contracts'
 
-const native = vi.hoisted(() => ({ enabled: false, create: vi.fn(), open: vi.fn(), save: vi.fn(), seek: vi.fn(), guard: vi.fn(), chooseAudio: vi.fn() }))
+const native = vi.hoisted(() => ({ enabled: false, create: vi.fn(), open: vi.fn(), save: vi.fn(), seek: vi.fn(), play: vi.fn(), pause: vi.fn(), position: 1, guard: vi.fn(), chooseAudio: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => native.enabled, convertFileSrc: (path: string) => path, invoke: vi.fn() }))
 vi.mock('../persistence', async importOriginal => {
   const original = await importOriginal<typeof import('../persistence')>()
@@ -14,7 +14,7 @@ vi.mock('../persistence', async importOriginal => {
     chooseProjectFolder: async () => '/notes/demo', protectNativeClose: native.guard }
 })
 vi.mock('../features/timeline', () => ({ Timeline: forwardRef(function MockTimeline(props: { onEvent(event: unknown): void; annotations: unknown[] }, ref) {
-  useImperativeHandle(ref, () => ({ getPosition: () => 1, seek: native.seek, pause: vi.fn() }))
+  useImperativeHandle(ref, () => ({ getPosition: () => native.position, seek: native.seek, play: () => { native.play(); props.onEvent({ type: 'playing' }); return Promise.resolve() }, pause: (reason: string) => { native.pause(reason); props.onEvent({ type: reason === 'user' ? 'user-paused' : 'paused', position: native.position }) } }))
   return <><span data-testid="count">{props.annotations.length}</span><button onClick={() => props.onEvent({ type: 'ready', duration: 2 })}>Load recording</button></>
 }) }))
 vi.mock('../features/notes', () => ({ NotePanel: forwardRef(function MockPanel(props: { state: DomainState; onAction(action: DomainAction): void; onError(error: unknown): void }, _ref) {
@@ -25,7 +25,7 @@ vi.mock('../features/notes', () => ({ NotePanel: forwardRef(function MockPanel(p
 }) }))
 vi.mock('../features/queue', () => ({ QueuePanel: () => <div>queue</div> }))
 afterEach(() => { cleanup(); native.enabled = false; vi.clearAllMocks() })
-beforeEach(() => { native.guard.mockReset().mockResolvedValue(() => {}); native.chooseAudio.mockReset().mockResolvedValue('/original/demo.wav') })
+beforeEach(() => { native.position = 1; native.guard.mockReset().mockResolvedValue(() => {}); native.chooseAudio.mockReset().mockResolvedValue('/original/demo.wav') })
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -35,6 +35,63 @@ function deferred<T>() {
 }
 
 describe('browser fallback', () => {
+  it('routes unmodified workspace transport keys through the global listener, guarding repeats and unloaded audio', async () => {
+    render(<App />)
+    expect(fireEvent.keyDown(document.body, { key: ' ', cancelable: true })).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: /Open nonpersistent preview/ }))
+    expect(fireEvent.keyDown(document.body, { key: ' ', cancelable: true })).toBe(true)
+    expect(native.play).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Load recording' }))
+    expect(fireEvent.keyDown(document.body, { key: ' ', cancelable: true })).toBe(false)
+    expect(native.play).toHaveBeenCalledTimes(1)
+    expect(fireEvent.keyDown(document.body, { key: ' ', repeat: true, cancelable: true })).toBe(false)
+    expect(native.pause).not.toHaveBeenCalled()
+    native.position = 1.5
+    expect(fireEvent.keyDown(document.body, { key: 'ArrowLeft', repeat: true, cancelable: true })).toBe(false)
+    expect(native.seek).toHaveBeenLastCalledWith(0)
+    expect(fireEvent.keyDown(document.body, { key: 'ArrowRight', cancelable: true })).toBe(false)
+    expect(native.seek).toHaveBeenLastCalledWith(2)
+    expect(native.pause).not.toHaveBeenCalled()
+    expect(fireEvent.keyDown(document.body, { key: ' ', cancelable: true })).toBe(false)
+    expect(native.pause).toHaveBeenCalledWith('user')
+    await waitFor(() => expect(native.seek).toHaveBeenLastCalledWith(0.4))
+  })
+  it('leaves editing, widgets, button activation, modifiers and inert workspaces alone', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /Open nonpersistent preview/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Load recording' }))
+    const workspace = document.querySelector<HTMLElement>('main.workspace')!
+    const elements = document.createElement('div')
+    elements.innerHTML = '<input type="range"><select><option>one</option></select><div contenteditable="true"><span>text</span></div><div class="ce-popover"><button>menu</button></div><div class="ce-inline-toolbar"><span>toolbar</span></div><button>Done</button><div role="slider" tabindex="0"></div>'
+    workspace.append(elements)
+    for (const target of elements.querySelectorAll('input, select, span, button, [role="slider"]')) {
+      expect(fireEvent.keyDown(target, { key: ' ', cancelable: true })).toBe(true)
+      expect(fireEvent.keyDown(target, { key: 'ArrowRight', cancelable: true })).toBe(true)
+    }
+    const done = elements.querySelectorAll('button')[1]
+    const activate = vi.fn()
+    done.addEventListener('click', activate)
+    done.focus()
+    expect(fireEvent.keyDown(done, { key: ' ', cancelable: true })).toBe(true)
+    fireEvent.keyUp(done, { key: ' ' })
+    fireEvent.click(done) // jsdom does not synthesize the browser's native activation
+    expect(activate).toHaveBeenCalledTimes(1)
+    for (const modifier of [{ metaKey: true }, { ctrlKey: true }, { altKey: true }, { shiftKey: true }]) {
+      expect(fireEvent.keyDown(document.body, { key: ' ', cancelable: true, ...modifier })).toBe(true)
+      expect(fireEvent.keyDown(document.body, { key: 'ArrowRight', cancelable: true, ...modifier })).toBe(true)
+    }
+    expect(fireEvent.keyDown(document.body, { key: 's', metaKey: true, cancelable: true })).toBe(false)
+    expect(fireEvent.keyDown(document.body, { key: ' ', isComposing: true, cancelable: true })).toBe(true)
+    const prevented = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
+    prevented.preventDefault()
+    document.body.dispatchEvent(prevented)
+    workspace.inert = true
+    expect(fireEvent.keyDown(document.body, { key: ' ', cancelable: true })).toBe(true)
+    expect(native.play).not.toHaveBeenCalled()
+    expect(native.seek).not.toHaveBeenCalled()
+    workspace.inert = false
+    elements.remove()
+  })
   it('requires native projects and opens only a clearly labelled fixture', () => {
     render(<App />)
     expect(screen.getByText('Notate').parentElement?.textContent).toBe('aNotate')
@@ -142,6 +199,24 @@ describe('native project entry', () => {
     expect(screen.getByRole('alert').textContent).toContain('Audio could not be decoded')
     expect(screen.getByRole('button', { name: 'Create project' })).not.toHaveProperty('disabled', true)
     expect(screen.queryByText('Preparing audio…')).toBeNull()
+  })
+  it('does not run transport shortcuts while a project picker is busy', async () => {
+    native.enabled = true
+    native.open.mockResolvedValueOnce({ directory: '/notes/demo', recordingUrl: 'asset://recording', project: { version: 1, id: 'native', name: 'demo', recording: { relativePath: 'recording.wav' }, annotations: [], projectNote: { blocks: [] }, pendingAnnotationIds: [] } })
+    const picker = deferred<string | null>()
+    native.chooseAudio.mockReturnValueOnce(picker.promise)
+    render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open project' })).not.toHaveProperty('disabled', true))
+    fireEvent.click(screen.getByRole('button', { name: 'Open project' }))
+    await screen.findByText('Listening notebook')
+    fireEvent.click(screen.getByRole('button', { name: 'Load recording' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New project' }))
+    fireEvent.click(screen.getByRole('button', { name: /Choose audio/ }))
+    expect(fireEvent.keyDown(document.body, { key: ' ', cancelable: true })).toBe(true)
+    expect(fireEvent.keyDown(document.body, { key: 'ArrowRight', cancelable: true })).toBe(true)
+    expect(native.play).not.toHaveBeenCalled()
+    expect(native.seek).not.toHaveBeenCalled()
+    await act(async () => picker.resolve(null))
   })
   it('blocks native entry while close protection is pending or fails, and enables it only after retry succeeds', async () => {
     native.enabled = true

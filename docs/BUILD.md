@@ -14,7 +14,7 @@ Implementation proposals below may be refined by agents when platform/library fa
 
 ## Current state
 
-The initial prototype and review fixes are implemented; native manual acceptance remains open. The user has approved renaming to aNotate and broad offline audio import while preserving originals. Two Terra agents are implementing this follow-up under the ownership and acceptance gates in [AUDIO-IMPORT.md](AUDIO-IMPORT.md); the phases below describe the initial prototype, not instructions to scaffold it again. Git `origin` remains the user-authorized public repository `VincentCarrancho/audioAnnotationApp`.
+The initial prototype and aNotate/audio-import follow-up are implemented; native manual acceptance remains open. The user is testing the installed app and has supplied an additional [UI/UX pass](UX-PASS.md), now assigned to separate transport and timeline Terra agents. Final packaging/install and removal of the old installed wavNotes app follow these changes. Audio implementation/verification is in [AUDIO-IMPORT.md](AUDIO-IMPORT.md). The phases below describe the original prototype, not instructions to scaffold again. Git `origin` remains `VincentCarrancho/audioAnnotationApp`.
 
 ## Phase 0 — Foundation and contracts
 

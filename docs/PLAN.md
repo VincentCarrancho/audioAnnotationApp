@@ -27,10 +27,12 @@ The initial prototype is implemented; native manual acceptance remains open. The
 - Each annotation has one formatted note body; markers are not containers for separate notes.
 - A separate project note holds whole-recording observations.
 - Annotation handles stack automatically when they collide visually and unstack as zoom creates room. There are no manually managed layers.
+- A range annotation's start/end handles always share a row. Move the pair together when resolving visual collisions, retaining separate clickable handles for very short ranges.
 - Clicking an annotation opens its formatted note below the timeline without moving playback.
 - Explicit playback actions allow listening from an annotation or looping its range.
 - Dragging on the waveform makes a temporary time selection, like Audacity.
 - Selecting alone does not create a note. An explicit Annotate selection action creates a range annotation.
+- Double-clicking a range annotation handle selects that passage without moving the playhead, pausing/starting playback, or creating a new annotation.
 - Point timestamps and range boundaries can be adjusted by dragging or editing timestamp fields, without a beat grid or musical snapping.
 - Annotation labels use their timestamp and an excerpt from the first nonempty note text. Unwritten pending items show Pending annotation. There is no required title field.
 
@@ -58,6 +60,7 @@ The initial prototype is implemented; native manual acceptance remains open. The
 ## Playback
 
 - Initial controls: play/pause, restart, click-to-seek, zoom in/out, fit recording, loop selection or range annotation, current time, and total duration.
+- Outside text editing, Space toggles play/pause and Left/Right seek backward/forward by five seconds. Seeking preserves playback state and stays within recording bounds. Preserve normal text navigation and native keyboard activation of focused controls.
 - Defer playback-speed changes, pitch changes, beat grids, and other listening aids until after the core prototype.
 - Loop boundaries repeat playback without starting queue review. Outside an existing review session, explicit pause or the end of non-looping playback may begin review.
 

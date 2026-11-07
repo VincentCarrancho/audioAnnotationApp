@@ -27,7 +27,7 @@ export interface TimelineHandle {
 }
 
 type Handle = { key: string; id: string; part: 'point' | 'start' | 'end'; time: number }
-type Drag = { kind: 'selection'; start: number; clientX: number } | { kind: 'handle'; handle: Handle; clientX: number; contentLeft: number }
+type Drag = { kind: 'selection'; start: number; clientX: number } | { kind: 'handle'; handle: Handle; clientX: number; contentLeft: number; moved: boolean }
 
 function formatTime(time: number) {
   if (!Number.isFinite(time)) return '0:00.00'
@@ -47,6 +47,8 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
   const content = useRef<HTMLDivElement>(null)
   const adapter = useRef<WaveSurferPlaybackAdapter | null>(null)
   const drag = useRef<Drag | null>(null)
+  const lastGestureDragged = useRef(false)
+  const suppressDoubleClick = useRef(false)
   const [duration, setDuration] = useState(0)
   const [position, setPosition] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -115,7 +117,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
       ? [{ key: `${annotation.id}:point`, id: annotation.id, part: 'point', time: anchor.time }]
       : [{ key: `${annotation.id}:start`, id: annotation.id, part: 'start', time: anchor.start }, { key: `${annotation.id}:end`, id: annotation.id, part: 'end', time: anchor.end }]
   }), [props.annotations])
-  const placements = placeHandles(handles.map((handle) => ({ key: handle.key, x: (dragPreview?.key === handle.key ? dragPreview.time : handle.time) / (duration || 1) * contentWidth, width: 34 })), contentWidth)
+  const placements = placeHandles(handles.map((handle) => ({ key: handle.key, group: handle.part === 'point' ? undefined : handle.id, x: (dragPreview?.key === handle.key ? dragPreview.time : handle.time) / (duration || 1) * contentWidth, width: 34 })), contentWidth)
   const placementByKey = new Map(placements.map((placement) => [placement.key, placement]))
   const rowCount = placements.reduce((count, placement) => Math.max(count, placement.row + 1), 0)
   const selected = props.annotations.find((annotation) => annotation.id === props.selectedAnnotationId)
@@ -149,7 +151,11 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
   function pointerMove(event: React.PointerEvent<HTMLDivElement>) {
     const current = drag.current
     if (!current) return
-    if (current.kind === 'handle') setDragPreview({ key: current.handle.key, time: handleDelta(current, event.clientX).time })
+    if (current.kind === 'handle') {
+      const delta = handleDelta(current, event.clientX)
+      if (Math.abs(delta.pixels) >= 3) current.moved = true
+      setDragPreview({ key: current.handle.key, time: delta.time })
+    }
     else if (Math.abs(event.clientX - current.clientX) >= 3) {
       const time = timeAt(event.clientX)
       publishSelection({ start: Math.min(current.start, time), end: Math.max(current.start, time) })
@@ -162,8 +168,11 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
     if (current.kind === 'handle') {
       const delta = handleDelta(current, event.clientX)
       setDragPreview(null)
-      if (Math.abs(delta.pixels) >= 3) handleAnchor(current.handle, delta.time)
-      else currentPlayer()?.annotationSelected(current.handle.id)
+      lastGestureDragged.current = current.moved || Math.abs(delta.pixels) >= 3
+      if (lastGestureDragged.current) {
+        suppressDoubleClick.current = true
+        if (Math.abs(delta.pixels) >= 3) handleAnchor(current.handle, delta.time)
+      } else currentPlayer()?.annotationSelected(current.handle.id)
     } else if (Math.abs(event.clientX - current.clientX) >= 3) {
       const time = timeAt(event.clientX)
       publishSelection(time === current.start ? null : { start: Math.min(time, current.start), end: Math.max(time, current.start) })
@@ -185,18 +194,30 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
     </div>
     {error && <p className="wn-error" role="alert">Audio error: {error}</p>}
     <div className="wn-viewport" ref={viewport}>
-      <div className="wn-content" ref={content} style={{ width: contentWidth }} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; setDragPreview(null) }}>
+      <div className="wn-content" ref={content} style={{ width: contentWidth }} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { if (drag.current?.kind === 'handle') { lastGestureDragged.current = true; suppressDoubleClick.current = true }; drag.current = null; setDragPreview(null) }}>
         <div className="wn-handles" style={{ height: Math.max(8, rowCount * 30) }}>
+          {placements.map((place) => {
+            const anchor = Math.max(0, Math.min(contentWidth, place.x))
+            const center = place.left + place.width / 2
+            return Math.abs(center - anchor) > 0.5 && <span key={`connector:${place.key}`} className="wn-handle-connector" style={{ left: Math.min(anchor, center), width: Math.abs(center - anchor), top: place.row * 30 + 13 }} />
+          })}
           {handles.map((handle) => {
             const place = placementByKey.get(handle.key)
             if (!place) return null
             const annotation = props.annotations.find((item) => item.id === handle.id)!
             const label = `${handle.part === 'point' ? 'Point' : `Range ${handle.part}`} · ${formatTime(handle.time)} · ${noteExcerpt(annotation)}`
-            return <button type="button" key={handle.key} className={`wn-handle ${props.selectedAnnotationId === handle.id ? 'is-selected' : ''}`} style={{ left: place.left, top: place.row * 30 }}
+            return <button type="button" key={handle.key} className={`wn-handle ${props.selectedAnnotationId === handle.id ? 'is-selected' : ''}`} style={{ left: place.left, width: place.width, top: place.row * 30 }}
               aria-label={`${label} (${handle.id})`}
-              title={`${label} · click to open, drag to adjust`}
-              onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); content.current?.setPointerCapture(event.pointerId); drag.current = { kind: 'handle', handle, clientX: event.clientX, contentLeft: content.current?.getBoundingClientRect().left ?? 0 } }}
-              onClick={(event) => { if (event.detail === 0) currentPlayer()?.annotationSelected(handle.id) }}>
+              title={`${label} · click to open, drag to adjust${handle.part === 'point' ? '' : ', double-click to select passage'}`}
+              onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); drag.current = { kind: 'handle', handle, clientX: event.clientX, contentLeft: content.current?.getBoundingClientRect().left ?? 0, moved: false } }}
+              onClick={(event) => { if (event.detail === 0) currentPlayer()?.annotationSelected(handle.id); else if (event.detail === 1 && !lastGestureDragged.current) suppressDoubleClick.current = false }}
+              onDoubleClick={(event) => {
+                event.preventDefault(); event.stopPropagation()
+                const suppressed = suppressDoubleClick.current
+                suppressDoubleClick.current = false
+                const anchor = callbacks.current.annotations.find((item) => item.id === handle.id)?.anchor
+                if (!suppressed && anchor?.kind === 'range') publishSelection({ start: anchor.start, end: anchor.end })
+              }}>
               {handle.part === 'point' ? '●' : handle.part === 'start' ? '[' : ']'}
             </button>
           })}

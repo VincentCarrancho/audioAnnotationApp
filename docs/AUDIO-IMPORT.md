@@ -43,7 +43,7 @@ Do not distribute this machine's Homebrew FFmpeg: it is GPL-enabled and dynamica
 
 - [x] User approved name and original-plus-playback-copy approach.
 - [x] UI/branding and native import implementation.
-- [ ] Independent review and automated conversion/compatibility checks.
+- [x] Independent review and automated conversion/compatibility checks.
 - [ ] Packaged build and native acceptance handoff.
 - [ ] After the replacement build is ready, move the old installed `/Applications/wavNotes.app` to Trash as requested by the user. Preserve the repository/workspace and all saved projects; do not treat the `wavNotes` source directory as an uninstall target.
 
@@ -53,3 +53,4 @@ Do not distribute this machine's Homebrew FFmpeg: it is GPL-enabled and dynamica
 - Native import/decoder packaging is implemented and ownership released. Orchestrator explicitly supplied the packaged decoder path and generated fixture directory: all 14 Rust tests passed, with successful conversion output for WAV, MP3, M4A, AAC, FLAC, Vorbis, Opus, AIFF, and WMA v2. Legacy projects, exact originals, duration/rate/channels, invalid inputs, and safe failures are covered. The oversized-output check uses a sparse file rather than a real multi-gigabyte conversion.
 - Orchestrator checked the packaged decoder is arm64 and links only macOS system libraries; no Homebrew runtime dependency. A read-only Terra review is checking the implementation before final build/handoff.
 - Review follow-up assigned to the native owner: reject aligned truncated WAV containers that FFmpeg tolerates, make heavy project opening asynchronous, preserve the original filename in its stored path, make fixture-matrix skipping explicit, and revalidate decoder/source cache provenance. Existing legacy projects and already-created `original/source` projects must remain supported.
+- Review corrections are complete, including acceptance of complete odd-length WAVs with omitted terminal padding while still rejecting missing audio bytes. Orchestrator reran 99 frontend tests and all 23 native tests with the normally ignored format matrix explicitly enabled; all passed. Final packaged build/install is combined with the user's new [UI/UX pass](UX-PASS.md).

@@ -124,6 +124,21 @@ export class AppController {
     const action: DomainAction = { type: 'capture-point', id: crypto.randomUUID(), time: this.position(), duration: this.view.duration, playing: this.view.playing }
     void this.dispatch(action).catch(this.report)
   }
+  togglePlayback(): boolean {
+    const timeline = this.ports.timeline()
+    if (!this.alive || !timeline || !Number.isFinite(this.view.duration) || this.view.duration <= 0) return false
+    if (this.view.playing) timeline.pause('user')
+    else void timeline.play().catch(this.report)
+    return true
+  }
+  seekBy(seconds: number): boolean {
+    const timeline = this.ports.timeline()
+    if (!this.alive || !timeline || !Number.isFinite(this.view.duration) || this.view.duration <= 0 || !Number.isFinite(seconds)) return false
+    const position = timeline.getPosition()
+    if (!Number.isFinite(position)) return false
+    timeline.seek(Math.max(0, Math.min(this.view.duration, position + seconds)))
+    return true
+  }
   annotate(range: TimeRange) {
     if (!(this.view.duration > 0)) return
     void this.dispatch({ type: 'annotate-selection', id: crypto.randomUUID(), ...range, position: this.position(), duration: this.view.duration, playing: this.view.playing }).catch(this.report)
@@ -172,5 +187,10 @@ export class AppController {
 
 /** M is a capture shortcut only outside text and Editor.js controls. */
 export function isEditingTarget(target: EventTarget | null): boolean {
-  return target instanceof Element && !!target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], .codex-editor, .ce-toolbar, .ce-popover, .inline-toolbar')
+  return target instanceof Element && !!target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], .codex-editor, .ce-toolbar, .ce-popover, .ce-inline-toolbar, .ce-conversion-toolbar, .tc-popover, .inline-toolbar')
+}
+
+/** Transport keys must not override native controls or Editor.js menus. */
+export function isTransportControl(target: EventTarget | null): boolean {
+  return isEditingTarget(target) || target instanceof Element && !!target.closest('button, a[href], summary, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="slider"], [role="spinbutton"], [role="switch"], [role="combobox"], [role="listbox"], [role="option"], [role="menu"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="tab"], [role="tree"], [role="treeitem"]')
 }

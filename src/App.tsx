@@ -5,7 +5,7 @@ import { Timeline, type TimelineHandle } from './features/timeline'
 import { NotePanel, type NotePanelHandle } from './features/notes'
 import { QueuePanel } from './features/queue'
 import { chooseProjectFolder, chooseProjectParent, chooseSourceAudio, NativeProjectRepository, protectNativeClose } from './persistence'
-import { AppController, isEditingTarget } from './app/controller'
+import { AppController, isEditingTarget, isTransportControl } from './app/controller'
 
 const repository = new NativeProjectRepository()
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : String(error)
@@ -126,7 +126,8 @@ export default function App() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const current = active.current
-      if (!current || (native && !guardReady.current) || event.defaultPrevented || event.isComposing || document.querySelector<HTMLElement>('main.workspace')?.inert) return
+      const workspace = document.querySelector<HTMLElement>('main.workspace')
+      if (!current || (native && !guardReady.current) || event.defaultPrevented || event.isComposing || workspace?.inert || workspace?.closest('[inert]')) return
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
         event.preventDefault(); void current.manualSave().catch(current.report); return
       }
@@ -136,6 +137,11 @@ export default function App() {
       if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.repeat && event.key.toLowerCase() === 'm' && !isEditingTarget(event.target)) {
         event.preventDefault(); current.capture()
       }
+      if (busyRef.current || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || isTransportControl(event.target)) return
+      if (event.key === ' ' && event.repeat && timeline.current && Number.isFinite(current.view.duration) && current.view.duration > 0) event.preventDefault()
+      else if (event.key === ' ' && !event.repeat && current.togglePlayback()) event.preventDefault()
+      else if (event.key === 'ArrowLeft' && current.seekBy(-5)) event.preventDefault()
+      else if (event.key === 'ArrowRight' && current.seekBy(5)) event.preventDefault()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -186,7 +192,7 @@ function ProjectWorkspace({ controller, editor, timeline }: { controller: AppCon
     {controller.preview && <div className="preview-banner">Fixture preview only · edits disappear when you leave. Create and open real projects in the macOS app.</div>}
     <div className="timeline-heading"><div><h2>Recording</h2><p>Listen, select a passage, or drop a marker as you go.</p></div><button className="primary marker-button" disabled={!view.duration} onClick={() => controller.capture()}>+ Add marker <kbd>M</kbd></button></div>
     <Timeline ref={timeline} recordingUrl={controller.session.recordingUrl} annotations={state.project.annotations} selectedAnnotationId={state.selectedNote?.kind === 'annotation' ? state.selectedNote.id : null} onEvent={event => controller.event(event)} onAnnotateSelection={range => controller.annotate(range)} onAnchorChange={(id, anchor, duration) => void controller.dispatch({ type: 'update-anchor', id, anchor, duration }).catch(controller.report)} />
-    <p className="keyboard-hint"><kbd>M</kbd> captures without interrupting playback. Pause to review your markers.</p>
+    <p className="keyboard-hint"><kbd>Space</kbd> play/pause · <kbd>←</kbd> <kbd>→</kbd> seek 5 seconds · <kbd>M</kbd> captures without interrupting playback. Pause to review your markers.</p>
     <div className="workspace-lower">
       <NotePanel ref={editor} state={state} revision={controller.revision(state.selectedNote)} onSnapshot={controller.snapshot} onAction={act} focusRequest={view.focusRequest} onError={controller.reportEditorError} onPlayAnnotation={id => controller.playAnnotation(id)} onLoopAnnotation={id => controller.playAnnotation(id, true)} />
       <QueuePanel state={state} position={view.position} beforeAction={() => controller.beforeQueueAction()} onAction={act} onError={controller.report} />

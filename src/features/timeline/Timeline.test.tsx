@@ -105,6 +105,111 @@ describe('Timeline composition', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Annotate selection' }))
     expect(onAnnotateSelection).toHaveBeenCalledWith({ start: 2, end: 6 })
   })
+  it('double-clicks either range endpoint to select without transport or annotation side effects', async () => {
+    const range: Annotation = { id: 'range', anchor: { kind: 'range', start: 2, end: 8 }, note: { blocks: [] } }
+    const onEvent = vi.fn(), annotate = vi.fn()
+    const ref = createRef<TimelineHandle>()
+    const { container } = render(<Timeline ref={ref} recordingUrl="/sample.wav" annotations={[range]} onEvent={onEvent} onAnnotateSelection={annotate} onAnchorChange={vi.fn()} />)
+    await screen.findByText('0:00.00 / 0:10.00')
+    await act(async () => { await ref.current?.play() })
+    fake.wave.play.mockClear()
+    for (const part of ['start', 'end']) {
+      onEvent.mockClear()
+      const button = screen.getByRole('button', { name: new RegExp(`Range ${part}.*\\(range\\)`) })
+      for (let n = 1; n <= 2; n++) {
+        fireEvent.pointerDown(button, { button: 0, clientX: 80, pointerId: 1 })
+        fireEvent.pointerUp(button, { button: 0, clientX: 80, pointerId: 1 })
+        fireEvent.click(button, { detail: n })
+      }
+      fireEvent.doubleClick(button, { detail: 2 })
+      expect(onEvent.mock.calls.map(([event]) => event)).toContainEqual({ type: 'selection-changed', selection: { start: 2, end: 8 } })
+      expect(button.title).toMatch(/double.click/i)
+      expect(container.querySelector('.wn-selection')).not.toBeNull()
+      expect((screen.getByRole('button', { name: 'Annotate selection' }) as HTMLButtonElement).disabled).toBe(false)
+      expect((screen.getByRole('button', { name: 'Loop selection' }) as HTMLButtonElement).disabled).toBe(false)
+      expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy()
+    }
+    expect(onEvent.mock.calls.map(([event]) => event)).toContainEqual({ type: 'annotation-selected', id: 'range' })
+    expect(fake.wave.setTime).not.toHaveBeenCalled()
+    expect(fake.wave.play).not.toHaveBeenCalled()
+    expect(fake.wave.pause).not.toHaveBeenCalled()
+    expect(annotate).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Annotate selection' }))
+    expect(annotate).toHaveBeenCalledWith({ start: 2, end: 8 })
+  })
+  it('renders paired range rows and releases endpoint collisions when zoomed', async () => {
+    const items: Annotation[] = [
+      { id: 'a', anchor: { kind: 'range', start: 2, end: 8 }, note: { blocks: [] } },
+      { id: 'b', anchor: { kind: 'range', start: 2.6, end: 6 }, note: { blocks: [] } },
+      { id: 'point', anchor: { kind: 'point', time: 4 }, note: { blocks: [] } },
+    ]
+    render(<Timeline recordingUrl="/sample.wav" annotations={items} onAnnotateSelection={vi.fn()} onAnchorChange={vi.fn()} />)
+    await screen.findByText('0:00.00 / 0:10.00')
+    const handle = (part: string, id: string) => screen.getByRole('button', { name: new RegExp(`${part}.*\\(${id}\\)`) })
+    const aStart = handle('Range start', 'a'), aEnd = handle('Range end', 'a')
+    const bStart = handle('Range start', 'b'), bEnd = handle('Range end', 'b')
+    expect(aStart.style.top).toBe(aEnd.style.top)
+    expect(bStart.style.top).toBe(bEnd.style.top)
+    expect(aStart.style.top).not.toBe(bStart.style.top)
+    expect(handle('Point', 'point').style.top).toBe(aStart.style.top)
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    expect(aStart.style.top).toBe(bStart.style.top)
+    expect(bStart.style.top).toBe(bEnd.style.top)
+  })
+  it('renders narrow duplicate pairs as separate, clamped targets and preserves each click', async () => {
+    const items: Annotation[] = ['a', 'b'].map((id) => ({ id, anchor: { kind: 'range', start: 0, end: 0.01 }, note: { blocks: [] } }))
+    const onEvent = vi.fn()
+    render(<Timeline recordingUrl="/sample.wav" annotations={items} onEvent={onEvent} onAnnotateSelection={vi.fn()} onAnchorChange={vi.fn()} />)
+    await screen.findByText('0:00.00 / 0:10.00')
+    const get = (id: string, part: string) => screen.getByRole('button', { name: new RegExp(`Range ${part}.*\\(${id}\\)`) })
+    for (const id of ['a', 'b']) {
+      const start = get(id, 'start'), end = get(id, 'end')
+      expect(start.style.top).toBe(end.style.top)
+      expect(parseFloat(start.style.left)).toBeGreaterThanOrEqual(0)
+      expect(parseFloat(start.style.left) + parseFloat(start.style.width)).toBeLessThanOrEqual(parseFloat(end.style.left))
+      for (const button of [start, end]) {
+        fireEvent.pointerDown(button, { button: 0, clientX: 10, pointerId: 1 })
+        fireEvent.pointerUp(button, { clientX: 10, pointerId: 1 })
+      }
+      expect(onEvent.mock.calls.filter(([event]) => event.type === 'annotation-selected' && event.id === id)).toHaveLength(2)
+    }
+    expect(get('a', 'start').style.top).not.toBe(get('b', 'start').style.top)
+    expect(fake.wave.setTime).not.toHaveBeenCalled()
+  })
+  it('does not select a range when a drag is followed by a double-click event', async () => {
+    const range: Annotation = { id: 'range', anchor: { kind: 'range', start: 2, end: 2.1 }, note: { blocks: [] } }
+    const onEvent = vi.fn(), onAnchorChange = vi.fn()
+    render(<Timeline recordingUrl="/sample.wav" annotations={[range]} onEvent={onEvent} onAnnotateSelection={vi.fn()} onAnchorChange={onAnchorChange} />)
+    const start = await screen.findByRole('button', { name: /Range start.*\(range\)/ })
+    const content = start.parentElement!.parentElement!
+    let left = 0
+    vi.spyOn(content, 'getBoundingClientRect').mockImplementation(() => ({ left, right: left + 400, width: 400, top: 0, bottom: 100, height: 100, x: left, y: 0, toJSON: () => ({}) }))
+    fireEvent.pointerDown(start, { button: 0, clientX: 70, pointerId: 1 })
+    left = 40
+    fireEvent.pointerMove(start, { clientX: 66, pointerId: 1 })
+    fireEvent.pointerUp(start, { clientX: 66, pointerId: 1 })
+    fireEvent.click(start, { detail: 1 })
+    fireEvent.pointerDown(start, { button: 0, clientX: 66, pointerId: 1 })
+    fireEvent.pointerUp(start, { clientX: 66, pointerId: 1 })
+    fireEvent.click(start, { detail: 2 })
+    fireEvent.doubleClick(start, { detail: 2 })
+    expect(onAnchorChange).toHaveBeenCalledWith('range', { kind: 'range', start: 0.8999999999999999, end: 2.1 }, 10)
+    expect(onEvent.mock.calls.some(([event]) => event.type === 'selection-changed')).toBe(false)
+  })
+  it('does not treat a drag returning to its origin as a click or double-click', async () => {
+    const range: Annotation = { id: 'range', anchor: { kind: 'range', start: 2, end: 8 }, note: { blocks: [] } }
+    const onEvent = vi.fn(), onAnchorChange = vi.fn()
+    render(<Timeline recordingUrl="/sample.wav" annotations={[range]} onEvent={onEvent} onAnnotateSelection={vi.fn()} onAnchorChange={onAnchorChange} />)
+    const handle = await screen.findByRole('button', { name: /Range start.*\(range\)/ })
+    fireEvent.pointerDown(handle, { button: 0, clientX: 80, pointerId: 1 })
+    fireEvent.pointerMove(handle, { clientX: 100, pointerId: 1 })
+    fireEvent.pointerMove(handle, { clientX: 80, pointerId: 1 })
+    fireEvent.pointerUp(handle, { clientX: 80, pointerId: 1 })
+    fireEvent.click(handle, { detail: 1 })
+    fireEvent.doubleClick(handle, { detail: 2 })
+    expect(onAnchorChange).not.toHaveBeenCalled()
+    expect(onEvent.mock.calls.some(([event]) => event.type === 'selection-changed' || event.type === 'annotation-selected')).toBe(false)
+  })
   it('commits point dragging and precise range edits through the callback', async () => {
     const onAnchorChange = vi.fn()
     const range: Annotation = { id: 'range', anchor: { kind: 'range', start: 2, end: 8 }, note: { blocks: [] } }

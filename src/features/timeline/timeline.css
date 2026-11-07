@@ -10,6 +10,7 @@
 .wn-viewport { overflow-x: auto; overflow-y: hidden; margin: 12px 0; border: 1px solid #dce7e3; background: #fff; border-radius: 6px; }
 .wn-content { position: relative; min-width: 100%; touch-action: none; }
 .wn-handles { position: relative; }
+.wn-handle-connector { position: absolute; height: 1px; background: #347f78; pointer-events: none; }
 .wn-timeline .wn-handle { position: absolute; width: 34px; height: 26px; padding: 0; border-radius: 5px; font-weight: 700; color: #256466; }
 .wn-timeline .wn-handle.is-selected { background: #d3e9de; border-color: #347f78; }
 .wn-wave { position: relative; height: 116px; cursor: crosshair; touch-action: none; }
