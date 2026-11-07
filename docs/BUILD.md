@@ -14,7 +14,7 @@ Implementation proposals below may be refined by agents when platform/library fa
 
 ## Current state
 
-The initial prototype and aNotate/audio-import follow-up are implemented; native manual acceptance remains open. The user is testing the installed app and has supplied an additional [UI/UX pass](UX-PASS.md), now assigned to separate transport and timeline Terra agents. Final packaging/install and removal of the old installed wavNotes app follow these changes. Audio implementation/verification is in [AUDIO-IMPORT.md](AUDIO-IMPORT.md). The phases below describe the original prototype, not instructions to scaffold again. Git `origin` remains `VincentCarrancho/audioAnnotationApp`.
+The aNotate/audio-import follow-up and first [UI/UX pass](UX-PASS.md) are implemented, tested, packaged, and installed. The old wavNotes app was moved to Trash without touching source/projects. Latest verification and format coverage are in [AUDIO-IMPORT.md](AUDIO-IMPORT.md); interactive native user acceptance remains ongoing. The phases below describe the original prototype, not instructions to scaffold again. Git `origin` remains `VincentCarrancho/audioAnnotationApp`.
 
 ## Phase 0 — Foundation and contracts
 
@@ -160,7 +160,7 @@ Return: changed files, checks/results, blockers, integration instructions
 - [x] Phase 3 automated checks, review fixes, and packaged build.
 - [ ] Phase 3 manual native acceptance scenario and final sign-off.
 
-### Verification handoff
+### Initial prototype verification handoff
 
 - All application code, configuration, tests, and integration fixes were implemented by GPT-6.1 Terra agents. The orchestrator dispatched, reviewed, tested, documented, and managed Git.
 - Final orchestrator checks: 95 frontend tests, nine Rust tests, TypeScript, Rust formatting, and `npm run desktop:build` passed. The frontend emits a non-blocking chunk-size warning.

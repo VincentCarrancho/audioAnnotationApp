@@ -16,5 +16,5 @@
       "assetProtocol": { "enable": true, "scope": ["$RESOURCE/resources/smoke.wav"] }
     }
   },
-  "bundle": { "active": true, "targets": "all", "resources": { "resources/smoke.wav": "resources/smoke.wav", "resources/ffmpeg": "resources/ffmpeg", "../third-party/ffmpeg/": "third-party/ffmpeg/", "../scripts/provision-decoder.sh": "third-party/ffmpeg/provision-decoder.sh" } }
+  "bundle": { "active": true, "targets": "all", "macOS": { "signingIdentity": "-" }, "resources": { "resources/smoke.wav": "resources/smoke.wav", "resources/ffmpeg": "resources/ffmpeg", "../third-party/ffmpeg/": "third-party/ffmpeg/", "../scripts/provision-decoder.sh": "third-party/ffmpeg/provision-decoder.sh" } }
 }

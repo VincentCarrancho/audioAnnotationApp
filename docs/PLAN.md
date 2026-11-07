@@ -1,7 +1,7 @@
 # aNotate design
 
 This document records the user-approved prototype requirements. Unresolved questions are not requirements.
-The initial prototype is implemented; native manual acceptance remains open. The approved rename and broad-format import follow-up is tracked in [AUDIO-IMPORT.md](AUDIO-IMPORT.md). Initial build sequencing and verification are in [BUILD.md](BUILD.md).
+The prototype, aNotate/audio-import follow-up, and first UI/UX pass are implemented and installed; native user acceptance remains ongoing. Follow-up verification is in [AUDIO-IMPORT.md](AUDIO-IMPORT.md) and [UX-PASS.md](UX-PASS.md). Initial build sequencing is in [BUILD.md](BUILD.md).
 
 ## Purpose and scope
 

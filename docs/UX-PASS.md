@@ -25,11 +25,12 @@ The user requested removing the old installed `/Applications/wavNotes.app` after
 
 - [x] Transport shortcuts.
 - [x] Paired range layout and double-click selection.
-- [ ] Combined checks and package build.
-- [ ] Installed update and old wavNotes app moved to Trash.
+- [x] Combined checks and package build.
+- [x] Installed update and old wavNotes app moved to Trash.
 
 ### Verification handoff
 
 - Orchestrator ran all 112 frontend tests and TypeScript checks successfully. The latest native source passed all 23 Rust tests with the format matrix enabled; the newly packaged decoder also passed the explicit ten-fixture gate.
 - Live browser DOM inspection confirmed each overlapping range pair shares its row. Browser interaction was concurrent with user testing, so do not claim an isolated live transport/double-click pass; those behaviors have focused component/controller tests and await native user feedback.
-- Desktop build succeeded, but the final `codesign --verify --deep --strict` check failed with `code has no resources but signature indicates they must be present`. Native owner is correcting reproducible ad-hoc package signing before installation. User has quit aNotate; recheck before modifying its installed copy.
+- The first strict signing check failed because the linker-generated signature did not seal bundle resources. Explicit Tauri `bundle.macOS.signingIdentity: "-"` now signs the executable and app during packaging. Orchestrator independently verified both packaged and installed apps with `codesign --verify --deep --strict`. This is a personal ad-hoc build, not a notarized release.
+- After confirming the app was closed, the prior installed aNotate bundle was retained in Trash, the new build was copied to `/Applications/aNotate.app`, and `/Applications/wavNotes.app` was moved to Trash. Source and saved projects were untouched. The updated installed app was launched and its process path confirmed. Native interactive acceptance continues with user feedback.
