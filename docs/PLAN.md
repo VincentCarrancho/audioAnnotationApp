@@ -14,6 +14,12 @@ The prototype, aNotate/audio-import follow-up, and first UI/UX pass are implemen
 - Import common local audio formats offline through bundled FFmpeg: tested targets are MP3, M4A/AAC, FLAC, OGG/Vorbis/Opus, AIFF, WAV, and common WMA variants. Unsupported, damaged, or protected files produce clear errors; literal support for every proprietary/DRM format is not promised.
 - Preserve an exact original copy and create a separate WAV playback copy. The user accepted extra disk usage and import time in exchange for consistent playback and no end-user decoder installation.
 
+## Appearance
+
+- Fixed light-mode styling with neutral grayscale colors only: white/light-gray surfaces, dark text, and gray borders, waveform, selection, and focus states.
+- Apply the palette consistently to the welcome screen, project controls, notes/Editor.js tools, queue, transport, annotation handles, banners, and error/save states. Preserve clear contrast and explicit status labels without colored accents.
+- Preserve layout, typography, annotation behavior, and keyboard controls. No theme toggle or unrelated redesign is requested.
+
 ## Project creation
 
 - New project → choose audio → choose project name and location → preserve the original and prepare the playback copy → open the timeline.

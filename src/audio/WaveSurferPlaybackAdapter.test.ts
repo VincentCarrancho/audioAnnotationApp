@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import WaveSurfer from 'wavesurfer.js'
 import type { PlaybackEvent } from '../contracts/playback'
 import { WaveSurferPlaybackAdapter, type WaveSurferPlayer } from './WaveSurferPlaybackAdapter'
 
@@ -25,6 +26,15 @@ function fixture() {
 }
 
 describe('WaveSurferPlaybackAdapter', () => {
+  it('creates with grayscale fallbacks without a DOM', () => {
+    const create = vi.spyOn(WaveSurfer, 'create').mockReturnValue({ on: () => () => {} } as unknown as WaveSurfer)
+    try {
+      WaveSurferPlaybackAdapter.create({} as HTMLElement)
+      expect(create.mock.calls[0][0]).toMatchObject({
+        waveColor: '#888888', progressColor: '#555555', cursorColor: '#222222',
+      })
+    } finally { create.mockRestore() }
+  })
   it('only emits a review pause on explicit user pause while playing', async () => {
     const f = fixture()
     await f.adapter.load('asset://recording.wav')

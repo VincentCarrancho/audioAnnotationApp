@@ -4,6 +4,29 @@ import type { PlaybackAdapter, PlaybackEvent, TimeRange } from '../contracts/pla
 /** The narrow WaveSurfer seam also allows media-event behavior to be tested without a decoder. */
 export type WaveSurferPlayer = Pick<WaveSurfer, 'on' | 'load' | 'play' | 'pause' | 'setTime' | 'getCurrentTime' | 'getDuration' | 'isPlaying' | 'zoom' | 'destroy'>
 
+function waveformPalette(container: HTMLElement) {
+  const fallback = { waveColor: '#888888', progressColor: '#555555', cursorColor: '#222222' }
+  try {
+    const document = container.ownerDocument
+    const view = document?.defaultView
+    if (!view || typeof view.getComputedStyle !== 'function') return fallback
+    const containerStyle = view.getComputedStyle(container)
+    const rootStyle = document.documentElement === container ? containerStyle : view.getComputedStyle(document.documentElement)
+    const color = (token: string, defaultColor: string) => {
+      const resolved = containerStyle.getPropertyValue(token).trim() || rootStyle.getPropertyValue(token).trim()
+      // Canvas colors must not receive unresolved custom-property expressions.
+      return resolved && !/var\s*\(/i.test(resolved) ? resolved : defaultColor
+    }
+    return {
+      waveColor: color('--color-wave', fallback.waveColor),
+      progressColor: color('--color-wave-progress', fallback.progressColor),
+      cursorColor: color('--color-wave-cursor', fallback.cursorColor),
+    }
+  } catch {
+    return fallback
+  }
+}
+
 export class WaveSurferPlaybackAdapter implements PlaybackAdapter {
   private listeners = new Set<(event: PlaybackEvent) => void>()
   private subscriptions: Array<() => void> = []
@@ -56,8 +79,8 @@ export class WaveSurferPlaybackAdapter implements PlaybackAdapter {
 
   static create(container: HTMLElement): WaveSurferPlaybackAdapter {
     return new WaveSurferPlaybackAdapter(WaveSurfer.create({
-      container, height: 116, waveColor: '#97a8ad', progressColor: '#3b7779',
-      cursorColor: '#153e42', cursorWidth: 2, interact: false, autoScroll: false,
+      container, height: 116, ...waveformPalette(container),
+      cursorWidth: 2, interact: false, autoScroll: false,
     }))
   }
 
