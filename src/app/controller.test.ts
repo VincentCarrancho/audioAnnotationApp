@@ -11,11 +11,12 @@ function setup() {
   const session: ProjectSession = { directory: '/project', recordingUrl: 'asset://audio', project: project() }
   const repository: ProjectRepository = { create: vi.fn(), open: vi.fn(), save: vi.fn().mockResolvedValue(undefined) }
   let position = 0
-  const timeline: TimelineHandle = { getPosition: () => position, seek: vi.fn((time: number) => { position = time }), pause: vi.fn(), play: vi.fn(), playFrom: vi.fn(), loopRange: vi.fn(), clearLoop: vi.fn() }
+  const timeline: TimelineHandle = { getPosition: () => position, seek: vi.fn((time: number) => { position = time }), pause: vi.fn(), play: vi.fn(), playFrom: vi.fn(), loopRange: vi.fn(), clearLoop: vi.fn(), zoomToSelection: vi.fn().mockReturnValue(false) }
   const editor: NotePanelHandle = { flush: vi.fn(), focus: vi.fn() }
-  const app = new AppController(session, repository, { timeline: () => timeline, editor: () => editor })
+  let attached = true
+  const app = new AppController(session, repository, { timeline: () => attached ? timeline : null, editor: () => editor })
   app.event({ type: 'ready', duration: 20 })
-  return { app, editor, timeline, repository, at: (value: number) => { position = value } }
+  return { app, editor, timeline, repository, at: (value: number) => { position = value }, detach: () => { attached = false }, attach: () => { attached = true } }
 }
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -26,6 +27,30 @@ function deferred<T>() {
 const tick = () => new Promise(resolve => setTimeout(resolve, 0))
 
 describe('integrated project controller', () => {
+  it('forwards selection zoom only for a live loaded timeline without changing project or transport state', () => {
+    const { app, timeline, detach, attach, at } = setup()
+    app.event({ type: 'playing' }); at(4); app.capture()
+    const before = app.view.state
+    expect(app.zoomToSelection()).toBe(false)
+    vi.mocked(timeline.zoomToSelection).mockReturnValue(true)
+    expect(app.zoomToSelection()).toBe(true)
+    expect(app.view.state).toBe(before)
+    expect(app.view.playing).toBe(true)
+    expect(timeline.seek).not.toHaveBeenCalled()
+    expect(timeline.play).not.toHaveBeenCalled()
+    expect(timeline.pause).not.toHaveBeenCalled()
+    app.event({ type: 'ready', duration: 0 })
+    expect(app.zoomToSelection()).toBe(false)
+    app.event({ type: 'ready', duration: Number.POSITIVE_INFINITY })
+    expect(app.zoomToSelection()).toBe(false)
+    app.event({ type: 'ready', duration: 20 })
+    detach()
+    expect(app.zoomToSelection()).toBe(false)
+    attach()
+    app.dispose()
+    expect(app.zoomToSelection()).toBe(false)
+    expect(timeline.zoomToSelection).toHaveBeenCalledTimes(2)
+  })
   it('scrubs from the live position within bounds without altering transport or entering review', async () => {
     const { app, at, timeline } = setup()
     app.event({ type: 'playing' }); at(8); app.capture()

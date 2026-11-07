@@ -14,7 +14,7 @@ Implementation proposals below may be refined by agents when platform/library fa
 
 ## Current state
 
-The aNotate/audio-import follow-up and first [UI/UX pass](UX-PASS.md) are installed; the old wavNotes app was moved to Trash without touching source/projects. The active follow-up is fixed light mode with neutral grayscale styling, approved in PLAN.md. A Terra styling agent owns all frontend CSS and the native window-theme setting; a separate Terra audio agent owns waveform color configuration/tests in `src/audio/`. Preserve existing layout/behavior and verify the combined app before updating the installed copy. The phases below describe the original prototype, not instructions to scaffold again. Git `origin` remains `VincentCarrancho/audioAnnotationApp`.
+The initial aNotate/audio-import and first UI/UX pass are installed. Neutral grayscale light styling is implemented with 117 frontend tests passing and awaits visual/native verification. The user added Z selection zoom and playback autoscroll; the active ownership and gates are in [UX-PASS.md](UX-PASS.md). Package/install all these changes together after combined checks. Preserve projects and avoid replacing the installed app while it is running. The phases below describe the original prototype, not instructions to scaffold again. Git `origin` remains `VincentCarrancho/audioAnnotationApp`.
 
 ## Phase 0 — Foundation and contracts
 

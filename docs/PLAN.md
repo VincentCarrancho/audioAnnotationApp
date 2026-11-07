@@ -67,6 +67,8 @@ The prototype, aNotate/audio-import follow-up, and first UI/UX pass are implemen
 
 - Initial controls: play/pause, restart, click-to-seek, zoom in/out, fit recording, loop selection or range annotation, current time, and total duration.
 - Outside text editing, Space toggles play/pause and Left/Right seek backward/forward by five seconds. Seeking preserves playback state and stays within recording bounds. Preserve normal text navigation and native keyboard activation of focused controls.
+- Outside editing/interactive controls, Z fits the current time selection to the timeline viewport without seeking or changing playback state. No selection is a safe no-op.
+- During zoomed playback, horizontally follow the playhead as it crosses the visible area. Respect deliberate manual scrolling or selection zoom instead of immediately snapping away; avoid auto-follow while dragging, and resume following when appropriate without changing audio playback.
 - Defer playback-speed changes, pitch changes, beat grids, and other listening aids until after the core prototype.
 - Loop boundaries repeat playback without starting queue review. Outside an existing review session, explicit pause or the end of non-looping playback may begin review.
 

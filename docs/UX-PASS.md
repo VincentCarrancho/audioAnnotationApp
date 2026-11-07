@@ -28,6 +28,22 @@ The user requested removing the old installed `/Applications/wavNotes.app` after
 - [x] Combined checks and package build.
 - [x] Installed update and old wavNotes app moved to Trash.
 
+## Follow-up: selection zoom and playback following
+
+The user requested Z to zoom into the selected passage and autoscroll when the playhead leaves a zoomed view. Include these with the neutral light-theme update before the next installation.
+
+- **Transport owner:** `src/App.tsx`, `src/app/**`, README.md. Add plain Z outside editing/native controls through `AppController.zoomToSelection(): boolean`. Forward to `TimelineHandle.zoomToSelection(): boolean`; preserve Cmd/Ctrl+Z deletion undo. Update hints/tests without theme changes.
+- **Timeline owner:** `src/features/timeline/**` (including styles only if required for behavior) and `src/audio/**` only if an actual seam requires it. Add the handle method and selection-fit zoom/scroll. Use the existing outer viewport, not a second WaveSurfer scroll system. Preserve neutral palette configuration.
+- Zoom retains playhead, play/pause state, and the existing selection; never creates a note. Bound extreme/tiny selection zoom to avoid invalid or excessive layout/canvas sizes.
+- During playback, reveal the playhead after visible-edge crossings, including backward loop wrap. Do not fight manual scrolling, drag gestures, or a deliberate selection zoom elsewhere. Paused playback does not continuously recenter the viewport.
+- Test real key events and editable/Cmd+Z exclusions; selected bounds/scroll position; playback state preservation; edge-follow, loop wrap, manual suspension, dragging, and fit/no-zoom behavior. Run combined checks and rebuild before installation.
+
+### Follow-up progress
+
+- [ ] Z key wiring and selection-fit zoom.
+- [ ] Playhead autoscroll respecting manual inspection.
+- [ ] Combined verification, neutral-theme build, and installed update.
+
 ### Verification handoff
 
 - Orchestrator ran all 112 frontend tests and TypeScript checks successfully. The latest native source passed all 23 Rust tests with the format matrix enabled; the newly packaged decoder also passed the explicit ten-fixture gate.

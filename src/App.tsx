@@ -142,6 +142,7 @@ export default function App() {
       else if (event.key === ' ' && !event.repeat && current.togglePlayback()) event.preventDefault()
       else if (event.key === 'ArrowLeft' && current.seekBy(-5)) event.preventDefault()
       else if (event.key === 'ArrowRight' && current.seekBy(5)) event.preventDefault()
+      else if (event.key.toLowerCase() === 'z' && current.zoomToSelection()) event.preventDefault()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -192,7 +193,7 @@ function ProjectWorkspace({ controller, editor, timeline }: { controller: AppCon
     {controller.preview && <div className="preview-banner">Fixture preview only · edits disappear when you leave. Create and open real projects in the macOS app.</div>}
     <div className="timeline-heading"><div><h2>Recording</h2><p>Listen, select a passage, or drop a marker as you go.</p></div><button className="primary marker-button" disabled={!view.duration} onClick={() => controller.capture()}>+ Add marker <kbd>M</kbd></button></div>
     <Timeline ref={timeline} recordingUrl={controller.session.recordingUrl} annotations={state.project.annotations} selectedAnnotationId={state.selectedNote?.kind === 'annotation' ? state.selectedNote.id : null} onEvent={event => controller.event(event)} onAnnotateSelection={range => controller.annotate(range)} onAnchorChange={(id, anchor, duration) => void controller.dispatch({ type: 'update-anchor', id, anchor, duration }).catch(controller.report)} />
-    <p className="keyboard-hint"><kbd>Space</kbd> play/pause · <kbd>←</kbd> <kbd>→</kbd> seek 5 seconds · <kbd>M</kbd> captures without interrupting playback. Pause to review your markers.</p>
+    <p className="keyboard-hint"><kbd>Space</kbd> play/pause · <kbd>←</kbd> <kbd>→</kbd> seek 5 seconds · <kbd>Z</kbd> zoom to selection · <kbd>M</kbd> captures without interrupting playback. Pause to review your markers.</p>
     <div className="workspace-lower">
       <NotePanel ref={editor} state={state} revision={controller.revision(state.selectedNote)} onSnapshot={controller.snapshot} onAction={act} focusRequest={view.focusRequest} onError={controller.reportEditorError} onPlayAnnotation={id => controller.playAnnotation(id)} onLoopAnnotation={id => controller.playAnnotation(id, true)} />
       <QueuePanel state={state} position={view.position} beforeAction={() => controller.beforeQueueAction()} onAction={act} onError={controller.report} />

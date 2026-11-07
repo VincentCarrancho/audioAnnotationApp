@@ -105,6 +105,151 @@ describe('Timeline composition', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Annotate selection' }))
     expect(onAnnotateSelection).toHaveBeenCalledWith({ start: 2, end: 6 })
   })
+  it('fits a dragged selection after layout without changing playback or creating a note', async () => {
+    const ref = createRef<TimelineHandle>(), onEvent = vi.fn(), annotate = vi.fn()
+    const { container } = render(<Timeline ref={ref} recordingUrl="/sample.wav" annotations={[]} onEvent={onEvent} onAnnotateSelection={annotate} onAnchorChange={vi.fn()} />)
+    await screen.findByText('0:00.00 / 0:10.00')
+    const view = container.querySelector<HTMLDivElement>('.wn-viewport')!
+    const content = container.querySelector<HTMLDivElement>('.wn-content')!
+    const wave = container.querySelector<HTMLDivElement>('.wn-wave')!
+    fireEvent.pointerDown(wave, { button: 0, clientX: 80, pointerId: 1 })
+    fireEvent.pointerMove(wave, { clientX: 240, pointerId: 1 })
+    fireEvent.pointerUp(wave, { clientX: 240, pointerId: 1 })
+    await act(async () => { await ref.current?.play() })
+    fake.wave.play.mockClear(); fake.wave.setTime.mockClear(); onEvent.mockClear()
+    let result = false
+    act(() => { result = ref.current!.zoomToSelection() })
+    expect(result).toBe(true)
+    expect(parseFloat(content.style.width)).toBeCloseTo(1000)
+    expect(view.scrollLeft).toBeCloseTo(200)
+    expect(screen.getByText('Selection 0:02.00 – 0:06.00')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy()
+    expect(fake.wave.play).not.toHaveBeenCalled(); expect(fake.wave.pause).not.toHaveBeenCalled(); expect(fake.wave.setTime).not.toHaveBeenCalled()
+    expect(onEvent).not.toHaveBeenCalled(); expect(annotate).not.toHaveBeenCalled()
+    act(() => { fake.fire('timeupdate', 0.5) })
+    expect(view.scrollLeft).toBeCloseTo(200) // deliberate selection zoom, playhead elsewhere
+  })
+  it('fits double-clicked ranges and bounds tiny selections and unavailable geometry', async () => {
+    const ref = createRef<TimelineHandle>()
+    const range: Annotation = { id: 'tiny', anchor: { kind: 'range', start: 9.999999999, end: 10 }, note: { blocks: [] } }
+    const { container } = render(<Timeline ref={ref} recordingUrl="/sample.wav" annotations={[range]} onAnnotateSelection={vi.fn()} onAnchorChange={vi.fn()} />)
+    await screen.findByText('0:00.00 / 0:10.00')
+    expect(ref.current!.zoomToSelection()).toBe(false)
+    const view = container.querySelector<HTMLDivElement>('.wn-viewport')!
+    Object.defineProperty(view, 'clientWidth', { configurable: true, value: 0 })
+    fireEvent.doubleClick(screen.getByRole('button', { name: /Range start.*\(tiny\)/ }), { detail: 2 })
+    expect(ref.current!.zoomToSelection()).toBe(false)
+    Object.defineProperty(view, 'clientWidth', { configurable: true, value: 400 })
+    let result = false
+    act(() => { result = ref.current!.zoomToSelection() })
+    expect(result).toBe(true)
+    const width = parseFloat(container.querySelector<HTMLDivElement>('.wn-content')!.style.width)
+    expect(Number.isFinite(width)).toBe(true)
+    expect(width).toBeLessThanOrEqual(100000)
+    expect(view.scrollLeft).toBeGreaterThanOrEqual(0)
+    expect(view.scrollLeft).toBeLessThanOrEqual(width - 400)
+    expect(fake.wave.setTime).not.toHaveBeenCalled()
+  })
+  it('fits an existing range at the recording edges and declines zoom before audio is ready', async () => {
+    fake.wave.load.mockImplementationOnce(() => new Promise<void>(() => {}))
+    const ref = createRef<TimelineHandle>()
+    const range: Annotation = { id: 'edge', anchor: { kind: 'range', start: 0, end: 2 }, note: { blocks: [] } }
+    const { container } = render(<Timeline ref={ref} recordingUrl="/sample.wav" annotations={[range]} onAnnotateSelection={vi.fn()} onAnchorChange={vi.fn()} />)
+    fireEvent.doubleClick(screen.getByRole('button', { name: /Range end.*\(edge\)/ }), { detail: 2 })
+    expect(ref.current!.zoomToSelection()).toBe(false)
+    act(() => { fake.fire('ready', 10) })
+    act(() => { expect(ref.current!.zoomToSelection()).toBe(true) })
+    const view = container.querySelector<HTMLDivElement>('.wn-viewport')!
+    const width = parseFloat(container.querySelector<HTMLDivElement>('.wn-content')!.style.width)
+    expect(width).toBeCloseTo(2000)
+    expect(view.scrollLeft).toBe(0)
+    expect(screen.getByText('Selection 0:00.00 – 0:02.00')).toBeTruthy()
+  })
+  it('follows forward edges and backward loop wraps only while playing and zoomed', async () => {
+    const ref = createRef<TimelineHandle>()
+    const { container } = render(<Timeline ref={ref} recordingUrl="/sample.wav" annotations={[]} onAnnotateSelection={vi.fn()} onAnchorChange={vi.fn()} />)
+    await screen.findByText('0:00.00 / 0:10.00')
+    const view = container.querySelector<HTMLDivElement>('.wn-viewport')!
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    act(() => { fake.fire('timeupdate', 7) })
+    expect(view.scrollLeft).toBe(0) // paused
+    act(() => { fake.fire('timeupdate', 6) })
+    await act(async () => { await ref.current!.play() })
+    fake.wave.setTime.mockClear()
+    act(() => { fake.fire('timeupdate', 6) })
+    expect(view.scrollLeft).toBe(0)
+    act(() => { fake.fire('timeupdate', 7) })
+    expect(view.scrollLeft).toBeGreaterThan(0)
+    fireEvent.scroll(view) // generated by our own scroll, not manual inspection
+    act(() => { fake.fire('timeupdate', 0.5) })
+    expect(view.scrollLeft).toBe(0)
+    expect(fake.wave.setTime).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Fit' }))
+    act(() => { fake.fire('timeupdate', 9) })
+    expect(view.scrollLeft).toBe(0)
+  })
+  it('suspends following during manual inspection and drag, then resumes on re-entry', async () => {
+    const ref = createRef<TimelineHandle>()
+    const { container } = render(<Timeline ref={ref} recordingUrl="/sample.wav" annotations={annotations} onAnnotateSelection={vi.fn()} onAnchorChange={vi.fn()} />)
+    await screen.findByText('0:00.00 / 0:10.00')
+    const view = container.querySelector<HTMLDivElement>('.wn-viewport')!
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    await act(async () => { await ref.current!.play() })
+    act(() => { fake.fire('timeupdate', 7) })
+    fireEvent.scroll(view)
+    view.scrollLeft = 20
+    fireEvent.scroll(view)
+    act(() => { fake.fire('timeupdate', 9) })
+    expect(view.scrollLeft).toBe(20)
+    act(() => { fake.fire('timeupdate', 2) }) // re-enters manually chosen view
+    act(() => { fake.fire('timeupdate', 9) })
+    expect(view.scrollLeft).toBeGreaterThan(20)
+    fireEvent.scroll(view)
+    const point = screen.getByRole('button', { name: /Pending annotation \(a\)/ })
+    const held = view.scrollLeft
+    fireEvent.pointerDown(point, { button: 0, clientX: 160, pointerId: 1 })
+    act(() => { fake.fire('timeupdate', 1) })
+    expect(view.scrollLeft).toBe(held)
+    fireEvent.pointerUp(point, { clientX: 160, pointerId: 1 })
+    act(() => { fake.fire('timeupdate', 1.1) })
+    expect(view.scrollLeft).toBe(held)
+  })
+  it('re-arms following on an explicit resume after manual inspection', async () => {
+    const ref = createRef<TimelineHandle>()
+    const { container } = render(<Timeline ref={ref} recordingUrl="/sample.wav" annotations={[]} onAnnotateSelection={vi.fn()} onAnchorChange={vi.fn()} />)
+    await screen.findByText('0:00.00 / 0:10.00')
+    const view = container.querySelector<HTMLDivElement>('.wn-viewport')!
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    await act(async () => { await ref.current!.play() })
+    act(() => { fake.fire('timeupdate', 7) })
+    fireEvent.scroll(view)
+    view.scrollLeft = 0; fireEvent.scroll(view)
+    act(() => { fake.fire('timeupdate', 9) })
+    expect(view.scrollLeft).toBe(0)
+    act(() => { ref.current!.pause('user') })
+    expect(view.scrollLeft).toBe(0)
+    await act(async () => { await ref.current!.play() })
+    expect(view.scrollLeft).toBeGreaterThan(0)
+  })
+  it('follows an actual loop boundary without turning it into a pause or seek from scrolling', async () => {
+    const ref = createRef<TimelineHandle>(), onEvent = vi.fn()
+    const { container } = render(<Timeline ref={ref} recordingUrl="/sample.wav" annotations={[]} onEvent={onEvent} onAnnotateSelection={vi.fn()} onAnchorChange={vi.fn()} />)
+    await screen.findByText('0:00.00 / 0:10.00')
+    const view = container.querySelector<HTMLDivElement>('.wn-viewport')!
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    await act(async () => { await ref.current!.loopRange({ start: 1, end: 8 }) })
+    act(() => { fake.fire('timeupdate', 7.5) })
+    expect(view.scrollLeft).toBeGreaterThan(0)
+    fireEvent.scroll(view)
+    fake.wave.setTime.mockClear(); fake.wave.pause.mockClear(); onEvent.mockClear()
+    act(() => { fake.fire('timeupdate', 8) })
+    expect(view.scrollLeft).toBe(0)
+    expect(fake.wave.setTime).toHaveBeenCalledTimes(1)
+    expect(fake.wave.setTime).toHaveBeenCalledWith(1) // the loop, not scrolling
+    expect(fake.wave.pause).not.toHaveBeenCalled()
+    expect(onEvent.mock.calls.some(([event]) => event.type === 'loop-boundary')).toBe(true)
+    expect(onEvent.mock.calls.some(([event]) => event.type === 'user-paused' || event.type === 'ended')).toBe(false)
+  })
   it('double-clicks either range endpoint to select without transport or annotation side effects', async () => {
     const range: Annotation = { id: 'range', anchor: { kind: 'range', start: 2, end: 8 }, note: { blocks: [] } }
     const onEvent = vi.fn(), annotate = vi.fn()

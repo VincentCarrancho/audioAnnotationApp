@@ -139,6 +139,11 @@ export class AppController {
     timeline.seek(Math.max(0, Math.min(this.view.duration, position + seconds)))
     return true
   }
+  zoomToSelection(): boolean {
+    const timeline = this.ports.timeline()
+    if (!this.alive || !timeline || !Number.isFinite(this.view.duration) || this.view.duration <= 0) return false
+    return timeline.zoomToSelection()
+  }
   annotate(range: TimeRange) {
     if (!(this.view.duration > 0)) return
     void this.dispatch({ type: 'annotate-selection', id: crypto.randomUUID(), ...range, position: this.position(), duration: this.view.duration, playing: this.view.playing }).catch(this.report)

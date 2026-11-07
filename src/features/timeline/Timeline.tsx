@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Annotation, AnnotationAnchor } from '../../contracts/project'
 import type { PlaybackEvent, TimeRange } from '../../contracts/playback'
 import { WaveSurferPlaybackAdapter } from '../../audio'
@@ -24,8 +24,11 @@ export interface TimelineHandle {
   playFrom(time: number): Promise<void>
   loopRange(range: TimeRange): Promise<void>
   clearLoop(): void
+  zoomToSelection(): boolean
 }
 
+// Limit the width of the waveform and its canvases for extremely short selections.
+const MAX_CONTENT_WIDTH = 100_000
 type Handle = { key: string; id: string; part: 'point' | 'start' | 'end'; time: number }
 type Drag = { kind: 'selection'; start: number; clientX: number } | { kind: 'handle'; handle: Handle; clientX: number; contentLeft: number; moved: boolean }
 
@@ -49,6 +52,8 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
   const drag = useRef<Drag | null>(null)
   const lastGestureDragged = useRef(false)
   const suppressDoubleClick = useRef(false)
+  const followSuspended = useRef(false)
+  const expectedScroll = useRef<number | null>(null)
   const [duration, setDuration] = useState(0)
   const [position, setPosition] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -58,13 +63,15 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
   const [zoom, setZoom] = useState(0)
   const [viewportWidth, setViewportWidth] = useState(0)
   const [dragPreview, setDragPreview] = useState<{ key: string; time: number } | null>(null)
+  const [zoomTarget, setZoomTarget] = useState<number | null>(null)
 
   useEffect(() => {
     if (!waveContainer.current) return
     let active = true
     const player = WaveSurferPlaybackAdapter.create(waveContainer.current)
     adapter.current = player
-    setDuration(0); setPosition(0); setPlaying(false); setError(null); setSelection(null); setLoop(null); setZoom(0)
+    followSuspended.current = false; expectedScroll.current = null
+    setDuration(0); setPosition(0); setPlaying(false); setError(null); setSelection(null); setLoop(null); setZoom(0); setZoomTarget(null)
     const unsubscribe = player.subscribe((event) => {
       if (!active) return
       if (event.type === 'ready') setDuration(event.duration)
@@ -91,24 +98,72 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
     return () => observer.disconnect()
   }, [])
 
-  const contentWidth = Math.max(viewportWidth, duration * zoom, 1)
+  const contentWidth = Math.max(viewportWidth, Math.min(MAX_CONTENT_WIDTH, duration * zoom || 0), 1)
   const currentPlayer = () => adapter.current
+  function scrollViewport(left: number) {
+    const element = viewport.current
+    if (!element) return
+    const bounded = Math.max(0, Math.min(Math.max(0, contentWidth - element.clientWidth), left))
+    if (Math.abs(element.scrollLeft - bounded) < 0.5) return
+    element.scrollLeft = bounded
+    expectedScroll.current = element.scrollLeft
+  }
+  // Applying the target before the width commits is clamped by the old scroll range.
+  useLayoutEffect(() => {
+    const element = viewport.current
+    if (!element) return
+    if (zoomTarget !== null && duration > 0) {
+      scrollViewport(zoomTarget / duration * contentWidth - element.clientWidth / 2)
+      setZoomTarget(null)
+    } else {
+      scrollViewport(element.scrollLeft)
+    }
+  }, [contentWidth, duration, zoomTarget])
+
+  useEffect(() => {
+    const element = viewport.current
+    if (!element || !playing || drag.current || !Number.isFinite(position) || !Number.isFinite(duration) || duration <= 0 || element.clientWidth <= 0 || contentWidth <= element.clientWidth + 1) return
+    const x = position / duration * contentWidth
+    const left = element.scrollLeft, right = left + element.clientWidth
+    if (followSuspended.current) {
+      if (x >= left && x <= right) followSuspended.current = false
+      return
+    }
+    if (x > right) scrollViewport(x - element.clientWidth * 0.2)
+    else if (x < left) scrollViewport(x - element.clientWidth * 0.8)
+  }, [position, playing, duration, contentWidth])
+
+  function zoomToSelection() {
+    const width = viewport.current?.clientWidth ?? 0
+    if (!currentPlayer() || !selection || !Number.isFinite(duration) || duration <= 0 || !Number.isFinite(width) || width <= 0 || !viewportWidth ||
+      !Number.isFinite(selection.start) || !Number.isFinite(selection.end) || selection.start < 0 || selection.start >= selection.end || selection.end > duration) return false
+    const fraction = (selection.end - selection.start) / duration
+    const targetWidth = Math.max(width, Math.min(Math.max(width, MAX_CONTENT_WIDTH), width / fraction))
+    const nextZoom = targetWidth / duration
+    if (!Number.isFinite(nextZoom)) return false
+    followSuspended.current = true
+    setZoom(nextZoom)
+    setZoomTarget(selection.start + (selection.end - selection.start) / 2)
+    return true
+  }
   const startLoop = async (range: TimeRange) => {
     if (!(Number.isFinite(range.start) && Number.isFinite(range.end) && range.start >= 0 && range.start < range.end && range.end <= duration)) return
     const player = currentPlayer()
     if (!player) return
+    followSuspended.current = false
     player.setLoop(range); setLoop(range); player.seek(range.start); await player.play()
   }
   const clearLoop = () => { currentPlayer()?.setLoop(null); setLoop(null) }
   const pause = (reason: 'user' | 'programmatic') => { currentPlayer()?.pause(reason); setPlaying(false) }
   useImperativeHandle(ref, () => ({
     getPosition: () => currentPlayer()?.getPosition() ?? 0,
-    seek: (time) => currentPlayer()?.seek(time),
-    play: async () => { await currentPlayer()?.play() },
+    seek: (time) => { followSuspended.current = false; currentPlayer()?.seek(time) },
+    play: async () => { followSuspended.current = false; await currentPlayer()?.play() },
     pause,
-    playFrom: async (time) => { clearLoop(); currentPlayer()?.seek(time); await currentPlayer()?.play() },
+    playFrom: async (time) => { followSuspended.current = false; clearLoop(); currentPlayer()?.seek(time); await currentPlayer()?.play() },
     loopRange: startLoop,
     clearLoop,
+    zoomToSelection,
   }))
 
   const handles = useMemo(() => props.annotations.flatMap((annotation): Handle[] => {
@@ -145,6 +200,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
   }
   function pointerDown(event: React.PointerEvent<HTMLDivElement>) {
     if (event.button !== 0 || !duration) return
+    followSuspended.current = true
     event.currentTarget.setPointerCapture(event.pointerId)
     drag.current = { kind: 'selection', start: timeAt(event.clientX), clientX: event.clientX }
   }
@@ -184,8 +240,8 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
 
   return <section className="wn-timeline" aria-label="Recording timeline">
     <div className="wn-transport">
-      <button type="button" disabled={!duration} onClick={() => playing ? pause('user') : void currentPlayer()?.play().catch(() => {})}>{playing ? 'Pause' : 'Play'}</button>
-      <button type="button" disabled={!duration} onClick={() => { clearLoop(); currentPlayer()?.seek(0) }}>Restart</button>
+      <button type="button" disabled={!duration} onClick={() => { if (playing) pause('user'); else { followSuspended.current = false; void currentPlayer()?.play().catch(() => {}) } }}>{playing ? 'Pause' : 'Play'}</button>
+      <button type="button" disabled={!duration} onClick={() => { followSuspended.current = false; clearLoop(); currentPlayer()?.seek(0) }}>Restart</button>
       <output aria-label="Playback position">{formatTime(position)} / {formatTime(duration)}</output>
       <span className="wn-spacer" />
       <button type="button" disabled={!duration} aria-label="Zoom out" onClick={() => updateZoom(Math.max((zoom || viewportWidth / duration) / 1.6, 0.01))}>−</button>
@@ -193,7 +249,12 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
       <button type="button" disabled={!duration} onClick={() => updateZoom(0)}>Fit</button>
     </div>
     {error && <p className="wn-error" role="alert">Audio error: {error}</p>}
-    <div className="wn-viewport" ref={viewport}>
+    <div className="wn-viewport" ref={viewport} onScroll={(event) => {
+      const actual = event.currentTarget.scrollLeft
+      if (expectedScroll.current !== null && Math.abs(actual - expectedScroll.current) < 1) { expectedScroll.current = null; return }
+      expectedScroll.current = null
+      followSuspended.current = true
+    }}>
       <div className="wn-content" ref={content} style={{ width: contentWidth }} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { if (drag.current?.kind === 'handle') { lastGestureDragged.current = true; suppressDoubleClick.current = true }; drag.current = null; setDragPreview(null) }}>
         <div className="wn-handles" style={{ height: Math.max(8, rowCount * 30) }}>
           {placements.map((place) => {
@@ -209,7 +270,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
             return <button type="button" key={handle.key} className={`wn-handle ${props.selectedAnnotationId === handle.id ? 'is-selected' : ''}`} style={{ left: place.left, width: place.width, top: place.row * 30 }}
               aria-label={`${label} (${handle.id})`}
               title={`${label} · click to open, drag to adjust${handle.part === 'point' ? '' : ', double-click to select passage'}`}
-              onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); drag.current = { kind: 'handle', handle, clientX: event.clientX, contentLeft: content.current?.getBoundingClientRect().left ?? 0, moved: false } }}
+              onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); followSuspended.current = true; event.currentTarget.setPointerCapture(event.pointerId); drag.current = { kind: 'handle', handle, clientX: event.clientX, contentLeft: content.current?.getBoundingClientRect().left ?? 0, moved: false } }}
               onClick={(event) => { if (event.detail === 0) currentPlayer()?.annotationSelected(handle.id); else if (event.detail === 1 && !lastGestureDragged.current) suppressDoubleClick.current = false }}
               onDoubleClick={(event) => {
                 event.preventDefault(); event.stopPropagation()

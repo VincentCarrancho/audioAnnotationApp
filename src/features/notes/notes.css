@@ -45,6 +45,7 @@
   --color-background-item-confirm-hover: var(--color-primary-hover);
 }
 .wn-editor .codex-editor ::selection { background: var(--color-selection); color: var(--color-text); }
+.wn-editor .codex-editor-overlay .codex-editor-overlay__rectangle { background-color: rgba(128, 128, 128, .2); border-color: rgba(102, 102, 102, .5); }
 .wn-editor .codex-editor [data-placeholder]:empty::before,
 .wn-editor .codex-editor [data-placeholder][data-empty=true]::before,
 .wn-editor .codex-editor [data-placeholder-active]:empty::before,

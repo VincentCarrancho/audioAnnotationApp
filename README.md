@@ -49,7 +49,7 @@ bash scripts/verify-audio-import.sh
 
 ## Working with notes
 
-Outside editors and controls, **Space** plays or pauses and **← / →** seek five seconds. Shortcuts leave normal text editing and focused controls alone.
+Outside editors and controls, **Space** plays or pauses, **← / →** seek five seconds, and **Z** zooms to the current selection. Shortcuts leave normal text editing and focused controls alone. When zoomed, the timeline follows playback while respecting manual scrolling and selection zoom.
 
 Capture with M outside an editor, or use **Add marker**. Playback continues while capturing; pausing opens the first queued item. **Done → Next** completes an item, while **Skip for now** leaves it pending for a later pass. Normal playback during review does not move to another note. Select a marker or an item in the chronological note navigation to open it without seeking; use the explicit play or loop buttons to listen from it. Delete is separately undoable with **Undo delete** or ⌘Z (Ctrl+Z) outside an editor. The project note is independent of annotations.
 
