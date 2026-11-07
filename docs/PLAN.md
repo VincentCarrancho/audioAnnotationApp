@@ -18,7 +18,8 @@ The prototype, aNotate/audio-import follow-up, and first UI/UX pass are implemen
 
 - Fixed light-mode styling with neutral grayscale colors only: white/light-gray surfaces, dark text, and gray borders, waveform, selection, and focus states.
 - Apply the palette consistently to the welcome screen, project controls, notes/Editor.js tools, queue, transport, annotation handles, banners, and error/save states. Preserve clear contrast and explicit status labels without colored accents.
-- Preserve layout, typography, annotation behavior, and keyboard controls. No theme toggle or unrelated redesign is requested.
+- Visual character: pixel/block typography with square corners, hard borders, and flat panels rather than soft rounded-card styling. Bundle the font locally so the app remains offline; keep note text readable.
+- Preserve layout/workflow, annotation behavior, and keyboard controls. No theme toggle or unrelated feature redesign is requested.
 
 ## Project creation
 

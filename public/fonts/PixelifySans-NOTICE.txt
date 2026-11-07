@@ -1,0 +1,24 @@
+Pixelify Sans
+
+Designer: Stefie Justprince
+Copyright 2021 The Pixelify Sans Project Authors
+https://github.com/eifetx/Pixelify-Sans
+
+License: SIL Open Font License, Version 1.1. The complete upstream
+copyright and license text is included in PixelifySans-OFL.txt.
+
+Source: Google Fonts, google/fonts commit
+8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5
+Font: https://raw.githubusercontent.com/google/fonts/8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5/ofl/pixelifysans/PixelifySans%5Bwght%5D.ttf
+License: https://raw.githubusercontent.com/google/fonts/8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5/ofl/pixelifysans/OFL.txt
+Metadata: https://raw.githubusercontent.com/google/fonts/8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5/ofl/pixelifysans/METADATA.pb
+
+Google Fonts metadata identifies the original project revision as
+https://github.com/eifetx/Pixelify-Sans/commit/39df74aba80df8157546034b878e8be1eb565ced
+
+PixelifySans-Variable.ttf is the unmodified Google Fonts TrueType file,
+renamed locally. Its variable weight axis spans 400 to 700 (default 400).
+SHA-256: 9ba86cd010a4de309d263ceff8e8044092c9db7efda869620cb9ff1c4389e8a5
+
+PixelifySans-OFL.txt is the unmodified Google Fonts license file.
+SHA-256: b66ba46f511a851ab09998b5a5a9fdbb102545a3864cb993095e1745996873a7

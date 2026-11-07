@@ -40,9 +40,32 @@ The user requested Z to zoom into the selected passage and autoscroll when the p
 
 ### Follow-up progress
 
-- [ ] Z key wiring and selection-fit zoom.
-- [ ] Playhead autoscroll respecting manual inspection.
-- [ ] Combined verification, neutral-theme build, and installed update.
+- [x] Z key wiring and selection-fit zoom.
+- [x] Playhead autoscroll respecting manual inspection.
+- [x] Combined verification, neutral-theme build, and installed update (included with the pixel-font follow-up below).
+
+## Visual follow-up: pixel/block typography
+
+The user wants a more distinctive pixel/block-font interface, not generic shadcn/Material-like rounded cards. Keep the approved neutral light palette and existing interactions.
+
+- **Font asset owner:** only the new `public/fonts/PixelifySans-Variable.ttf`, `public/fonts/PixelifySans-OFL.txt`, and `public/fonts/PixelifySans-NOTICE.txt`. Obtain the authentic Pixelify Sans variable font from its official upstream at a pinned revision; include source URL, checksum, and full license. These public files ship with the frontend, so no external font/CDN requests are needed.
+- **Styling owner:** all four frontend CSS files only. Use the bundled `Pixelify Sans` family through semantic font tokens, including timeline overrides and Editor.js tools. Make corners/controls/panels square, remove soft shadows/serif hero treatment, and use hard neutral borders. Keep existing layout, responsive structure, accessibility/focus cues, and readable editor text sizing. No audio behavior, JS, assets, native config, or dependencies.
+- Preserve exact aNotate naming and existing icon design; this is interface typography/geometry, not a new logo.
+- Verify actual font loading and grayscale computed styles in the browser, take a screenshot, rerun tests/typecheck, and rebuild/re-sign before replacing the installed app. Do not replace it while running.
+
+### Visual follow-up progress
+
+- [x] Local font and bundled license/provenance.
+- [x] Pixel/block typography and flat square styling.
+- [x] Combined checks, packaged build, and installed update.
+
+Selection zoom/autoscroll checkpoint: the orchestrator reran all 126 frontend tests successfully before this styling follow-up. Playback tests are unchanged by the visual direction.
+
+Font handoff: authentic unmodified Pixelify Sans variable font (weights 400–700), pinned Google Fonts revision and full SIL OFL license are under `public/fonts/`. Orchestrator verified its SHA-256 in both source and frontend build output.
+
+Final verification: the browser loaded the real font and computed styles confirmed Pixelify Sans in the UI/editor, zero-radius panels/controls, and no non-neutral rendered color values in the inspected view. A screenshot was reviewed. All 126 frontend tests, 23 Rust tests (matrix explicitly enabled), typecheck, the ten-fixture packaged-decoder gate, desktop build, and package/installed signature checks passed. The usual non-blocking frontend chunk warning remains.
+
+After verifying aNotate was closed, the prior installed build was preserved in Trash, the new package was installed at `/Applications/aNotate.app`, and the installed app was reopened. Saved projects were untouched. Interactive native feedback on selection zoom/follow behavior remains ongoing; do not conflate component tests or screenshots with exhaustive native acceptance.
 
 ### Verification handoff
 

@@ -1,4 +1,4 @@
-.wn-notes { margin-top: 1rem; padding: 1rem; border: 1px solid var(--color-border-subtle); border-radius: 10px; background: var(--color-surface); }
+.wn-notes { margin-top: 1rem; padding: 1rem; border: 1px solid var(--color-border-subtle); border-radius: 0; background: var(--color-surface); }
 .wn-notes-layout { display: grid; grid-template-columns: minmax(11rem, 16rem) minmax(0, 1fr); gap: 1.25rem; }
 .wn-note-nav { min-width: 0; }
 .wn-note-nav h3 { font-size: .8rem; color: var(--color-text-muted); margin: 1rem 0 .5rem; }
@@ -11,7 +11,7 @@
 .wn-note-heading h2 { font-size: 1.05rem; margin: 0; }
 .wn-note-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
 .wn-note-actions button { font-size: .8rem; }
-.wn-editor { margin-top: 1rem; padding: 1rem; border-radius: 8px; background: var(--color-surface-subtle); color: var(--color-text); overflow-wrap: anywhere; }
+.wn-editor { margin-top: 1rem; padding: 1rem; border-radius: 0; background: var(--color-surface-subtle); color: var(--color-text); font: 1.0625rem/1.6 var(--font-editor); overflow-wrap: anywhere; }
 .wn-editor[hidden] { display: none; }
 .wn-editor .codex-editor__redactor { padding-bottom: 4rem !important; }
 .wn-editor .ce-block__content, .wn-editor .ce-toolbar__content { max-width: 42rem; }
@@ -19,6 +19,7 @@
 
 /* Editor.js injects its own palette after app CSS. Scope overrides to its holder. */
 .wn-editor .codex-editor {
+  font-family: var(--font-editor);
   --selectionColor: var(--color-selection);
   --inlineSelectionColor: var(--color-selection);
   --bg-light: var(--color-hover);
@@ -29,6 +30,7 @@
   --color-line-gray: var(--color-border-subtle);
 }
 .wn-editor .ce-popover, .wn-editor .ce-inline-toolbar {
+  --border-radius: 0px;
   --color-border: var(--color-border-subtle);
   --color-shadow: rgba(0, 0, 0, .16);
   --color-background: var(--color-surface);
@@ -44,6 +46,12 @@
   --color-background-item-confirm: var(--color-primary);
   --color-background-item-confirm-hover: var(--color-primary-hover);
 }
+.wn-editor .codex-editor :is(input, button, [contenteditable], .ce-popover, .ce-inline-toolbar) { font-family: var(--font-editor); }
+.wn-editor .codex-editor :is(.ce-toolbar__plus, .ce-toolbar__settings-btn, .ce-inline-tool, .ce-inline-tool-input, .ce-popover__container, .ce-popover-item, .ce-popover-item__icon, .cdx-input, .cdx-settings-button, .cdx-button, .cdx-search-field, .ce-stub, .cdx-list-start-with-field, .cdx-list__checkbox-check) { border-radius: 0; box-shadow: none; }
+.wn-editor .codex-editor .ce-popover :is(.ce-popover__container, .ce-popover-item, .ce-popover-item__icon) { border-radius: 0; box-shadow: none; }
+.wn-editor .codex-editor .ce-popover .ce-popover-item--focused:not(.ce-popover-item--no-focus) { box-shadow: inset 0 0 0 1px var(--color-border-strong); }
+.wn-editor .cdx-list { --radius-border: 0px; }
+.wn-editor .cdx-list__checkbox-check::before { border-radius: 0; }
 .wn-editor .codex-editor ::selection { background: var(--color-selection); color: var(--color-text); }
 .wn-editor .codex-editor-overlay .codex-editor-overlay__rectangle { background-color: rgba(128, 128, 128, .2); border-color: rgba(102, 102, 102, .5); }
 .wn-editor .codex-editor [data-placeholder]:empty::before,
@@ -66,7 +74,7 @@
 .wn-editor .ce-inline-toolbar__dropdown:hover, .wn-editor .ce-inline-tool:hover,
 .wn-editor .cdx-settings-button:hover { background: var(--color-hover); }
 .wn-editor .ce-inline-tool--active, .wn-editor .cdx-settings-button--active { color: var(--color-text); background: var(--color-selected); }
-.wn-editor .cdx-settings-button--focused { background: var(--color-hover) !important; box-shadow: inset 0 0 0 1px var(--color-border-strong); }
+.wn-editor .codex-editor .cdx-settings-button--focused { background: var(--color-hover) !important; box-shadow: inset 0 0 0 1px var(--color-border-strong); }
 .wn-editor .ce-inline-tool-input, .wn-editor .cdx-input, .wn-editor .cdx-search-field { background: var(--color-surface); color: var(--color-text); border-color: var(--color-border); box-shadow: none; }
 .wn-editor .ce-inline-tool-input::placeholder, .wn-editor .cdx-search-field__input::placeholder,
 .wn-editor .cdx-search-field__icon svg, .wn-editor .ce-popover__nothing-found-message { color: var(--color-text-muted); }
@@ -89,7 +97,9 @@
 .wn-editor .cdx-list-start-with-field:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
 /* Notifications may be mounted outside the editor holder. */
-body .cdx-notify, body .cdx-notify--error, body .cdx-notify--success { background: var(--color-surface) !important; color: var(--color-text); box-shadow: 0 11px 17px rgba(0, 0, 0, .13); }
+body .cdx-notifies { font-family: var(--font-ui); }
+body .cdx-notify, body .cdx-notify--error, body .cdx-notify--success { background: var(--color-surface) !important; color: var(--color-text); border: 1px solid var(--color-border); border-radius: 0; box-shadow: none; }
+body .cdx-notify::before, body .cdx-notify__input, body .cdx-notify__button { border-radius: 0; font-family: var(--font-ui); }
 body .cdx-notify--error::before, body .cdx-notify--success::before { background: var(--color-border-strong) !important; }
 body .cdx-notify__input { background: var(--color-surface-subtle); color: var(--color-text); }
 body .cdx-notify__input::placeholder, body .cdx-notify__input:focus::placeholder { color: var(--color-text-muted); }

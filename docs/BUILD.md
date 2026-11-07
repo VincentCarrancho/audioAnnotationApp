@@ -14,7 +14,7 @@ Implementation proposals below may be refined by agents when platform/library fa
 
 ## Current state
 
-The initial aNotate/audio-import and first UI/UX pass are installed. Neutral grayscale light styling is implemented with 117 frontend tests passing and awaits visual/native verification. The user added Z selection zoom and playback autoscroll; the active ownership and gates are in [UX-PASS.md](UX-PASS.md). Package/install all these changes together after combined checks. Preserve projects and avoid replacing the installed app while it is running. The phases below describe the original prototype, not instructions to scaffold again. Git `origin` remains `VincentCarrancho/audioAnnotationApp`.
+The latest installed aNotate includes broad audio import, keyboard controls, paired ranges, Z selection zoom, playhead following, and a neutral light pixel/block visual treatment. Font provenance, visual checks, test counts, and installation details are in [UX-PASS.md](UX-PASS.md). All implementation ownership is released; native user feedback remains ongoing. Preserve projects and never replace the installed app while running. The phases below describe the original prototype, not instructions to scaffold again. Git `origin` remains `VincentCarrancho/audioAnnotationApp`.
 
 ## Phase 0 — Foundation and contracts
 

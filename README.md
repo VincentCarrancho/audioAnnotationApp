@@ -12,6 +12,10 @@ New playback copies use 32-bit float PCM, retaining the decoded stream's sample 
 
 Real packaged-decoder tests cover WAV, MP3, M4A, AAC, FLAC, Ogg Vorbis, Opus, AIFF and WMA v2. This is not a guarantee for every codec profile or DRM-protected recording.
 
+## Appearance
+
+The interface uses a neutral grayscale light palette, square controls, and locally bundled **Pixelify Sans** pixel/block typography. Font files, provenance, and the SIL Open Font License ship in `public/fonts/`; the app does not fetch fonts from a CDN.
+
 ## Run
 
 Install Node.js and npm, Rust through [rustup](https://rustup.rs/), and the Apple Command Line Tools (`xcode-select --install`). Use macOS with the Tauri prerequisites installed.
